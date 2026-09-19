@@ -147,7 +147,7 @@ if (src.indexOf(HOOK4) < 0) {
   const from = `  /* ================= цикл ================= */
   setAmmo(MAG);`;
   const to = `  ${HOOK4}
-  const attachApply = (slotKey, moduleKey) => {
+  const attachApply = ATTACH_STATE.apply = (slotKey, moduleKey) => {
     ATTACH_STATE.ui && ATTACH_STATE.ui.markStats();
     ATTACH_STATE.config[slotKey] = moduleKey;
     ATTACH_ASM = attachRebuildAK();

@@ -2213,7 +2213,7 @@ module.exports = function (G, C) {
   OUT.stock_telescopic = function (o) {
     const O = Object.assign({ mat: 'poly', ext: 2, mounts: 6 }, o || {});
     const P = bag();
-    const Y = 18.0;                         // ось буферной трубы над коробкой
+    const Y = 0.0;                          // ось буферной трубы на уровне посадки
     const R_T = 14.6;                        // труба Ø29,2 (карабинная)
     const L_T = 196;
     const pos = 26 + O.ext * 17.5;           // вылет салазки по фиксатору
@@ -3332,13 +3332,13 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -300], rot: [0, 0, 0],
         accepts: ['handguard'], length: 240, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 130, -200], rot: [0, 0, 0],
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 122, -196], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
       { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 96, -150], rot: [0, 0, 0],
         accepts: ['sidemount'], order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -122], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 62, 4], rot: [0, 0, 0],
+      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 6], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'brake_ak', handguard: 'handguard_wood', mag: 'mag_ak_30',
@@ -3357,13 +3357,13 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -290], rot: [0, 0, 0],
         accepts: ['handguard'], length: 220, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 128, -195], rot: [0, 0, 0],
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 120, -192], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
       { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 95, -148], rot: [0, 0, 0],
         accepts: ['sidemount'], order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -120], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 62, 6], rot: [0, 0, 0],
+      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 8], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'flash_cone', handguard: 'handguard_wood', mag: 'mag_ak_30',

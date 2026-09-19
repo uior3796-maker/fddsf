@@ -62,6 +62,14 @@ function attachAssemble() {
   return asm;
 }
 
+ATTACH_STATE.apply = function (slotKey, moduleKey) {
+  ATTACH_STATE.ui && ATTACH_STATE.ui.markStats();
+  ATTACH_STATE.config[slotKey] = moduleKey;
+  if (typeof attachRebuildRaw === 'function') attachRebuildRaw();
+  else attachAssemble();
+  ATTACH_STATE.ui && ATTACH_STATE.ui.render();
+};
+
 function attachConvert() {
   const asm = ATTACH_STATE.asm || attachAssemble();
   return ATTACH_RAW.convert(asm, { fmt: ${JSON.stringify(rec.fmt)},

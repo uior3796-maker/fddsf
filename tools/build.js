@@ -143,6 +143,31 @@ function attachRebuild(THREE, parent, baseParts, weaponNodes) {
   return asm;
 }
 
+/* Публичный API: смена модулей из консоли, автотестов и внешнего интерфейса.
+   Реальная функция подстановки регистрируется интеграцией оружия. */
+window.ATTACH = {
+  set(slotKey, moduleKey) {
+    if (!ATTACH_STATE.apply) throw new Error('система ещё не готова');
+    ATTACH_STATE.apply(slotKey, moduleKey);
+    return window.__ATTACH_DEBUG();
+  },
+  get: () => Object.assign({}, ATTACH_STATE.config),
+  slots: () => attachSlots().map((s) => s.key),
+  options: (slotKey) => attachOptionsFor(slotKey),
+  preset: {
+    save: () => __ATTACH.SYS.presetCodec().encode(ATTACH_STATE.config),
+    load(code) {
+      const cfg = __ATTACH.SYS.presetCodec().decode(code);
+      for (const k of attachSlots().map((s) => s.key))
+        window.ATTACH.set(k, cfg[k] || null);
+      return window.__ATTACH_DEBUG();
+    }
+  },
+  beam: (kind, level) => ATTACH_STATE.view.setBeam(kind, level),
+  deploy: (slotKey, t) => ATTACH_STATE.view.setDeploy(slotKey, t),
+  stats: () => (ATTACH_STATE.asm ? ATTACH_STATE.asm.derived : {})
+};
+
 /* Отладочный хук: состояние сборки доступно из консоли и автотестов. */
 window.__ATTACH_DEBUG = () => ({
   weapon: ${JSON.stringify(weaponKey)},

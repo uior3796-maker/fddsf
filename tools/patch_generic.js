@@ -93,7 +93,7 @@ function attachRebuildWeapon() {
   return asm;
 }
 
-const attachApply = (slotKey, moduleKey) => {
+const attachApply = ATTACH_STATE.apply = (slotKey, moduleKey) => {
   ATTACH_STATE.ui && ATTACH_STATE.ui.markStats();
   ATTACH_STATE.config[slotKey] = moduleKey;
   ATTACH_ASM = attachRebuildWeapon();
