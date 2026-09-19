@@ -593,15 +593,16 @@ module.exports = function (G) {
   const MATS = {
     anod:     { color: [0.026, 0.028, 0.031], metal: 0.84, rough: 0.47 },  // чёрный анодированный алюминий
     anodMatt: { color: [0.030, 0.031, 0.033], metal: 0.55, rough: 0.66 },  // матовая анодировка корпусов
-    fde:      { color: [0.250, 0.196, 0.116], metal: 0.06, rough: 0.63 },  // FDE-полимер / Cerakote
-    od:       { color: [0.090, 0.104, 0.062], metal: 0.06, rough: 0.64 },  // olive drab
+    fde:      { color: [0.170, 0.132, 0.077], metal: 0.06, rough: 0.63 },  // FDE-полимер / Cerakote
+    od:       { color: [0.044, 0.052, 0.030], metal: 0.10, rough: 0.62 },  // olive drab
     steel:    { color: [0.165, 0.170, 0.180], metal: 1.00, rough: 0.33 },
     steelDk:  { color: [0.072, 0.075, 0.080], metal: 0.95, rough: 0.44 },
     nitride:  { color: [0.042, 0.043, 0.046], metal: 0.92, rough: 0.36 },  // нитрид/QPQ дульных устройств
+    park:     { color: [0.052, 0.052, 0.050], metal: 0.90, rough: 0.58 },  // фосфатирование (АК)
     inconel:  { color: [0.205, 0.198, 0.186], metal: 1.00, rough: 0.41 },  // перегородки глушителя
     poly:     { color: [0.029, 0.030, 0.033], metal: 0.00, rough: 0.58 },
-    wood:     { color: [0.330, 0.130, 0.046], metal: 0.00, rough: 0.42 },  // лакированная берёза
-    woodDk:   { color: [0.198, 0.074, 0.026], metal: 0.00, rough: 0.48 },
+    wood:     { color: [0.196, 0.083, 0.031], metal: 0.00, rough: 0.44 },  // лакированная берёза
+    woodDk:   { color: [0.118, 0.046, 0.017], metal: 0.00, rough: 0.50 },
     bakelite: { color: [0.245, 0.072, 0.062], metal: 0.06, rough: 0.38 },  // «слива»
     rubber:   { color: [0.011, 0.011, 0.013], metal: 0.00, rough: 0.93 },
     glass:    { color: [0.560, 0.640, 0.620], metal: 0.00, rough: 0.05, alpha: 0.16, coat: 1 },
@@ -1726,10 +1727,14 @@ module.exports = function (G, C) {
     const ZF = -BL / 2, ZB = BL / 2;
 
     P.add('body', O.mat, boxC(0, BY, 0, BW, BH, BL, 3.0, 0.8));
+    /* облегчающие карманы: неглубокая утопленная панель с рамкой по контуру */
     for (const s of [-1, 1]) {
-      P.add('ribLong', O.mat, boxC(s * (BW / 2 + 0.3), BY, 4, 1.2, 2.6, 28, 0.4, 0.15));
-      for (const dz of [-10, 4, 18])
-        P.add('ribCross', O.mat, boxC(s * (BW / 2 + 0.3), BY, dz, 1.2, 18, 2.6, 0.4, 0.15));
+      const px = s * (BW / 2 - 0.9);
+      P.add('pocket', 'anodMatt', boxC(px, BY, 2, 1.8, BH - 13, BL - 24, 3.0, 0.4));
+      for (const dy of [-1, 1])
+        P.add('pocketEdge', O.mat, boxC(s * (BW / 2 + 0.15), BY + dy * (BH - 12) / 2, 2, 0.9, 1.8, BL - 22, 0.4, 0.15));
+      for (const dz of [-1, 1])
+        P.add('pocketEdge', O.mat, boxC(s * (BW / 2 + 0.15), BY, 2 + dz * (BL - 22) / 2, 0.9, BH - 11, 1.8, 0.4, 0.15));
     }
     for (const [dx, nm, mat] of [[-9.5, 'emitVis', 'laserRed'], [9.5, 'emitIR', 'laserIR']]) {
       P.add('emitWell', O.mat, tr(cyl(7.5, 7.5, ZF, ZF + 4, 24, true), dx, EMIT_Y, 0));
@@ -2769,7 +2774,7 @@ module.exports = function (G, C) {
     const optic = resolved.optic;
     if (optic && optic.foldIrons) out.foldIrons = true;
     if (optic && optic.mountType === 'sidemount' && !resolved.sidemount)
-      out.warnings.push('Для ПСО нужен боковой кронштейн');
+      out.warnings.push('Прицелу нужен боковой кронштейн');
     if (resolved.magnifier && !optic)
       out.warnings.push('Магнифер без коллиматора бесполезен');
     if (out.muzzleMeta && out.muzzleMeta.sound === 'suppressed') out.suppressed = true;
@@ -3215,6 +3220,95 @@ module.exports = function (G, C) {
 
 });
 
+__def("raw_adapter", function (module, exports) {
+/* ============================================================================
+   Адаптер для «сырых» WebGL-движков (СВД, Remington 870, Glock 18C).
+
+   Эти файлы рисуют индексированные меши собственного формата и не используют
+   three.js. Адаптер конвертирует треугольный суп системы модулей в нужный
+   формат и отдаёт материалы в терминах конкретного движка.
+
+   Поддерживаемые форматы:
+     'pnti' — {p,n,t,e,i}  (СВД): позиция, нормаль, UV, ребро, индексы;
+     'pni'  — {p,n,i}      (Glock);
+     'posTri' — {pos,nrm,tri} (Remington).
+   ========================================================================== */
+module.exports = function (G, C) {
+
+  /* Сварка вершин: суп → индексированный меш. Порог 0,02 мм. */
+  function weld(raw, fmt) {
+    const map = new Map();
+    const P = [], N = [], I = [];
+    const Q = 50;                                   // 1/0.02 мм
+    const n = raw.p.length / 3;
+    for (let i = 0; i < n; i++) {
+      const x = raw.p[i * 3], y = raw.p[i * 3 + 1], z = raw.p[i * 3 + 2];
+      const nx = raw.n[i * 3], ny = raw.n[i * 3 + 1], nz = raw.n[i * 3 + 2];
+      /* нормаль входит в ключ: острые рёбра не сглаживаются */
+      const k = Math.round(x * Q) + ',' + Math.round(y * Q) + ',' + Math.round(z * Q) + '|' +
+        Math.round(nx * 16) + ',' + Math.round(ny * 16) + ',' + Math.round(nz * 16);
+      let idx = map.get(k);
+      if (idx === undefined) {
+        idx = P.length / 3;
+        P.push(x, y, z); N.push(nx, ny, nz);
+        map.set(k, idx);
+      }
+      I.push(idx);
+    }
+    const vc = P.length / 3;
+    if (fmt === 'pni') return { p: P, n: N, i: I };
+    if (fmt === 'posTri') return { pos: P, nrm: N, tri: I };
+    /* pnti: UV по проекции + признак ребра */
+    const T = new Array(vc * 2).fill(0), E = new Array(vc).fill(0);
+    for (let v = 0; v < vc; v++) {
+      T[v * 2] = P[v * 3] * 0.01;
+      T[v * 2 + 1] = P[v * 3 + 2] * 0.01;
+    }
+    return { p: P, n: N, t: T, e: E, i: I };
+  }
+
+  /* Материал системы → материал движка. */
+  function material(matKey, engine) {
+    const d = C.MATS[matKey] || C.MATS.steel;
+    if (engine === 'svd') {
+      return { base: d.color.slice(), metal: d.metal, rough: d.rough, kind: 0,
+        wear: 0.35, axis: 2, opacity: d.alpha === undefined ? 1 : d.alpha,
+        emis: d.emis ? d.emis.slice() : [0, 0, 0], aoStr: 1, name: matKey };
+    }
+    if (engine === 'glock') {
+      return { a: d.color.slice(), m: d.metal, r: d.rough, cc: d.coat || 0,
+        d: 0, mk: 0, emis: d.emis ? d.emis.slice() : null, alpha: d.alpha };
+    }
+    /* remington */
+    return { base: d.color.slice(), metal: d.metal, rough: d.rough, type: 0,
+      ao: 1.0, emis: d.emis ? d.emis.slice() : undefined, alpha: d.alpha };
+  }
+
+  /* Разложить сборку по деталям в формате движка.
+     scale — множитель (движки работают в мм или в метрах). */
+  function convert(asm, o) {
+    const O = Object.assign({ fmt: 'pnti', engine: 'svd', scale: 1 }, o || {});
+    const out = [];
+    for (const p of asm.parts) {
+      const raw = O.scale === 1 ? p.geo
+        : { p: p.geo.p.map((v) => v * O.scale), n: p.geo.n.slice() };
+      out.push({
+        name: p.name, slot: p.src, module: p.module,
+        mesh: weld(raw, O.fmt),
+        mat: material(p.mat, O.engine),
+        matKey: p.mat,
+        glass: (asm.glass || []).indexOf(p.name) >= 0,
+        emissive: (asm.emissive || []).indexOf(p.name) >= 0
+      });
+    }
+    return out;
+  }
+
+  return { weld, material, convert };
+};
+
+});
+
 __def("slots", function (module, exports) {
 /* ============================================================================
    Описания слотов и базовая баллистика по каждому оружию.
@@ -3363,13 +3457,11 @@ module.exports = {
         accepts: ['optic', 'magnifier'], length: 260, order: 2, group: 'body' },
       { key: 'under', label: 'СОШКИ', type: 'rail', pos: [0, -26, -330], rot: [0, 0, Math.PI],
         accepts: ['under'], length: 100, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -26, -110], rot: [0, 0, 0],
-        accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 0, 30], rot: [0, 0, 0],
-        accepts: ['stock'], order: 0, group: 'body' }
+      { key: 'tactical', label: 'ТАКТИКА', type: 'rail', pos: [-24, -6, -300], rot: [0, 0, Math.PI / 2],
+        accepts: ['tactical'], length: 100, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'flash_cone', optic: 'scope_pso1', under: 'bipod',
-      mag: 'mag_svd_10', stock: 'stock_wood' }
+    /* приклад, магазин и штатный ПСО остаются от базовой модели винтовки */
+    defaults: { muzzle: 'flash_cone', under: 'bipod' }
   },
 
   /* --------------------------------------------------------- Remington 870 */
@@ -3385,11 +3477,10 @@ module.exports = {
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 32, -60], rot: [0, 0, 0],
         accepts: ['optic', 'ironRear'], length: 120, order: 2, group: 'body' },
       { key: 'tactical', label: 'ФОНАРЬ', type: 'rail', pos: [-22, -8, -300], rot: [0, 0, Math.PI / 2],
-        accepts: ['tactical'], length: 90, order: 2, group: 'body' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 0, 30], rot: [0, 0, 0],
-        accepts: ['stock'], order: 0, group: 'body' }
+        accepts: ['tactical'], length: 90, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'thread_cap', optic: 'reddot_rmr', stock: 'stock_wood' }
+    /* приклад и цевьё — от базовой модели ружья */
+    defaults: { optic: 'reddot_rmr', tactical: 'light_tac' }
   },
 
   /* ---------------------------------------------------------- Glock 18C */
@@ -3405,11 +3496,10 @@ module.exports = {
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 15, 40], rot: [0, 0, 0],
         accepts: ['optic'], length: 50, order: 2, group: 'slide' },
       { key: 'tactical', label: 'ФОНАРЬ', type: 'rail', pos: [0, -28, -62], rot: [0, 0, Math.PI],
-        accepts: ['tactical'], length: 40, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -46, 6], rot: [0, 0, 0],
-        accepts: ['mag'], order: 0, group: 'mag' }
+        accepts: ['tactical'], length: 40, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'thread_cap', optic: 'reddot_rmr', mag: 'mag_pistol_17' }
+    /* магазин — от базовой модели пистолета (он анимирован в перезарядке) */
+    defaults: { optic: 'reddot_rmr' }
   }
 };
 
@@ -3425,9 +3515,10 @@ module.exports = {
   ];
   const REG = SYS.registry(CATALOGS);
   const ADAPTER = __req('three_adapter')(G, C);
+  const RAW = __req('raw_adapter')(G, C);
   const UI = __req('ui')();
   const SLOTS = __req('slots');
-  return { G, C, SYS, REG, ADAPTER, UI, SLOTS, catalogs: CATALOGS };
+  return { G, C, SYS, REG, ADAPTER, RAW, UI, SLOTS, catalogs: CATALOGS };
 })();
 
 

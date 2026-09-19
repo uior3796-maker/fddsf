@@ -111,10 +111,14 @@ module.exports = function (G, C) {
     const ZF = -BL / 2, ZB = BL / 2;
 
     P.add('body', O.mat, boxC(0, BY, 0, BW, BH, BL, 3.0, 0.8));
+    /* облегчающие карманы: неглубокая утопленная панель с рамкой по контуру */
     for (const s of [-1, 1]) {
-      P.add('ribLong', O.mat, boxC(s * (BW / 2 + 0.3), BY, 4, 1.2, 2.6, 28, 0.4, 0.15));
-      for (const dz of [-10, 4, 18])
-        P.add('ribCross', O.mat, boxC(s * (BW / 2 + 0.3), BY, dz, 1.2, 18, 2.6, 0.4, 0.15));
+      const px = s * (BW / 2 - 0.9);
+      P.add('pocket', 'anodMatt', boxC(px, BY, 2, 1.8, BH - 13, BL - 24, 3.0, 0.4));
+      for (const dy of [-1, 1])
+        P.add('pocketEdge', O.mat, boxC(s * (BW / 2 + 0.15), BY + dy * (BH - 12) / 2, 2, 0.9, 1.8, BL - 22, 0.4, 0.15));
+      for (const dz of [-1, 1])
+        P.add('pocketEdge', O.mat, boxC(s * (BW / 2 + 0.15), BY, 2 + dz * (BL - 22) / 2, 0.9, BH - 11, 1.8, 0.4, 0.15));
     }
     for (const [dx, nm, mat] of [[-9.5, 'emitVis', 'laserRed'], [9.5, 'emitIR', 'laserIR']]) {
       P.add('emitWell', O.mat, tr(cyl(7.5, 7.5, ZF, ZF + 4, 24, true), dx, EMIT_Y, 0));

@@ -145,13 +145,11 @@ module.exports = {
         accepts: ['optic', 'magnifier'], length: 260, order: 2, group: 'body' },
       { key: 'under', label: 'СОШКИ', type: 'rail', pos: [0, -26, -330], rot: [0, 0, Math.PI],
         accepts: ['under'], length: 100, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -26, -110], rot: [0, 0, 0],
-        accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 0, 30], rot: [0, 0, 0],
-        accepts: ['stock'], order: 0, group: 'body' }
+      { key: 'tactical', label: 'ТАКТИКА', type: 'rail', pos: [-24, -6, -300], rot: [0, 0, Math.PI / 2],
+        accepts: ['tactical'], length: 100, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'flash_cone', optic: 'scope_pso1', under: 'bipod',
-      mag: 'mag_svd_10', stock: 'stock_wood' }
+    /* приклад, магазин и штатный ПСО остаются от базовой модели винтовки */
+    defaults: { muzzle: 'flash_cone', under: 'bipod' }
   },
 
   /* --------------------------------------------------------- Remington 870 */
@@ -167,11 +165,10 @@ module.exports = {
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 32, -60], rot: [0, 0, 0],
         accepts: ['optic', 'ironRear'], length: 120, order: 2, group: 'body' },
       { key: 'tactical', label: 'ФОНАРЬ', type: 'rail', pos: [-22, -8, -300], rot: [0, 0, Math.PI / 2],
-        accepts: ['tactical'], length: 90, order: 2, group: 'body' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 0, 30], rot: [0, 0, 0],
-        accepts: ['stock'], order: 0, group: 'body' }
+        accepts: ['tactical'], length: 90, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'thread_cap', optic: 'reddot_rmr', stock: 'stock_wood' }
+    /* приклад и цевьё — от базовой модели ружья */
+    defaults: { optic: 'reddot_rmr', tactical: 'light_tac' }
   },
 
   /* ---------------------------------------------------------- Glock 18C */
@@ -187,10 +184,9 @@ module.exports = {
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 15, 40], rot: [0, 0, 0],
         accepts: ['optic'], length: 50, order: 2, group: 'slide' },
       { key: 'tactical', label: 'ФОНАРЬ', type: 'rail', pos: [0, -28, -62], rot: [0, 0, Math.PI],
-        accepts: ['tactical'], length: 40, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -46, 6], rot: [0, 0, 0],
-        accepts: ['mag'], order: 0, group: 'mag' }
+        accepts: ['tactical'], length: 40, order: 2, group: 'body' }
     ],
-    defaults: { muzzle: 'thread_cap', optic: 'reddot_rmr', mag: 'mag_pistol_17' }
+    /* магазин — от базовой модели пистолета (он анимирован в перезарядке) */
+    defaults: { optic: 'reddot_rmr' }
   }
 };

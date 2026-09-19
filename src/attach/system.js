@@ -224,7 +224,7 @@ module.exports = function (G, C) {
     const optic = resolved.optic;
     if (optic && optic.foldIrons) out.foldIrons = true;
     if (optic && optic.mountType === 'sidemount' && !resolved.sidemount)
-      out.warnings.push('Для ПСО нужен боковой кронштейн');
+      out.warnings.push('Прицелу нужен боковой кронштейн');
     if (resolved.magnifier && !optic)
       out.warnings.push('Магнифер без коллиматора бесполезен');
     if (out.muzzleMeta && out.muzzleMeta.sound === 'suppressed') out.suppressed = true;
