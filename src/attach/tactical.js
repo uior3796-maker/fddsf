@@ -14,6 +14,12 @@ module.exports = function (G, C) {
 
   const OUT = {};
 
+  /* Единая система: модуль растёт в +Y от плоскости планки, зажим смотрит в −Y.
+     Нижние модули (рукоятки, сошки) удобнее строить «свисающими», поэтому после
+     сборки их тело разворачивается на 180° вокруг Z. Слот нижней планки сам
+     повернёт готовый модуль обратно вниз. */
+  const flipUp = (list) => { for (const p of list) G.transform(p.geo, G.mRotZ(PI)); return list; };
+
   /* Хвостовик фонаря: колпачок с накаткой, резиновая кнопка, гнездо выноса. */
   function tailCap(r, z0, len, mat) {
     const P = bag();
@@ -228,12 +234,14 @@ module.exports = function (G, C) {
     for (const sx of [-1, 1])
       P.add('fingerSwell', O.mat, tr(sphere(6.2, 14), sx * 12.0, TOP - L * 0.42, 0));
     P.add('flange', O.mat, boxC(0, TOP - 3.0, 0, 26, 7.0, 44, 2.2, 0.4));
+    /* рукоятка строится «свисающей», а хранится в общей системе (тело вверх от планки) */
+    flipUp(P.list);
     for (const p of railClamp({ len: 42, style: 'crossbolt', side: 1, lugs: [-10.16, 10.16], base: 0.6, width: 24 }))
       P.add(p.name, p.mat, p.geo);
 
     return { parts: P.list, meta: {
       slot: 'under', name: 'Вертикальная рукоятка', short: 'VFG', weight: 96,
-      gripNode: [0, TOP - L * 0.55, 0], handPose: 'vertical', flipForUnder: true,
+      gripNode: [0, -(TOP - L * 0.55), 0], handPose: 'vertical', flipForUnder: true,
       stats: { vertRecoil: -12, horizRecoil: -6, hipSpread: -4, adsSpeed: -3, mobility: -2 } } };
   };
 
@@ -251,12 +259,13 @@ module.exports = function (G, C) {
     }
     P.add('thumbRest', O.mat, tr(sphere(8.0, 16), 0, -6.0, 14.0));
     P.add('flange', O.mat, boxC(0, -2.2, -16, 26, 5.0, 52, 2.0, 0.4));
+    flipUp(P.list);
     for (const p of railClamp({ len: 50, style: 'crossbolt', side: 1, lugs: [-10.16, 10.16], base: 0.6, width: 24 }))
       P.add(p.name, p.mat, tr(p.geo, 0, 0, -16));
 
     return { parts: P.list, meta: {
       slot: 'under', name: 'Угловая рукоятка', short: 'AFG', weight: 62,
-      gripNode: [0, -22, -14], handPose: 'angled', flipForUnder: true,
+      gripNode: [0, 22, -14], handPose: 'angled', flipForUnder: true,
       stats: { vertRecoil: -6, horizRecoil: -10, hipSpread: -2, adsSpeed: 2, mobility: 0 } } };
   };
 
@@ -269,11 +278,12 @@ module.exports = function (G, C) {
     for (let i = 0; i < 5; i++)
       P.add('rib', 'poly', boxC(0, -8 - i * 3.0, 6 - i * 2.0, 22, 1.4, 2.2, 0.4, 0.15));
     P.add('flange', 'poly', boxC(0, -2.0, -2, 24, 4.4, 30, 1.8, 0.3));
+    flipUp(P.list);
     for (const p of railClamp({ len: 28, style: 'crossbolt', side: 1, lugs: [0], base: 0.6, width: 22 }))
       P.add(p.name, p.mat, tr(p.geo, 0, 0, -2));
     return { parts: P.list, meta: {
       slot: 'under', name: 'Упор кисти', short: 'STOP', weight: 28,
-      gripNode: [0, -14, -4], handPose: 'extended', flipForUnder: true,
+      gripNode: [0, 14, -4], handPose: 'extended', flipForUnder: true,
       stats: { vertRecoil: -2, horizRecoil: -4, hipSpread: -6, adsSpeed: 3, mobility: 2 } } };
   };
 
@@ -314,12 +324,13 @@ module.exports = function (G, C) {
     }
 
     P.add('mountBase', O.mat, boxC(0, -2.6, 0, 26, 6.0, 48, 2.0, 0.4));
+    flipUp(P.list);
     for (const p of railClamp({ len: 46, style: 'thumb', side: 1, lugs: [-10.16, 10.16], base: 0.6, width: 26 }))
       P.add(p.name, p.mat, p.geo);
 
     return { parts: P.list, meta: {
       slot: 'under', name: 'Сошки', short: 'СОШКИ', weight: 380, flipForUnder: true,
-      deploy: { pivot: [0, PIVOT_Y, -6], axis: 'x', foldedAngle: -86, deployedAngle: 0,
+      deploy: { pivot: [0, -PIVOT_Y, -6], axis: 'x', foldedAngle: 86, deployedAngle: 0,
         parts: ['legTube', 'legTubeIn', 'legHole', 'legButton', 'legSpring', 'legExt', 'foot', 'footTread'] },
       heightRange: [152, 224], panRange: 32, tiltRange: 28,
       stats: { vertRecoil: -34, horizRecoil: -28, hipSpread: 14, adsSpeed: -8, mobility: -10, proneBonus: 40 } } };

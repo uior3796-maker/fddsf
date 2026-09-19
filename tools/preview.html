@@ -1,0 +1,81 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Стенд модулей</title>
+<style>html,body{margin:0;height:100%;background:#15181c;overflow:hidden}canvas{display:block}
+#lbl{position:fixed;left:14px;top:12px;font:600 13px ui-monospace,Menlo,monospace;color:#e8b45c;z-index:9}
+#sub{position:fixed;left:14px;top:32px;font:500 11px ui-monospace,Menlo,monospace;color:#9aa3ad;z-index:9;white-space:pre}</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.166.1/build/three.module.js","three/addons/":"https://unpkg.com/three@0.166.1/examples/jsm/"}}</script>
+</head><body><div id="lbl"></div><div id="sub"></div>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const B = await (await fetch('../dist_bundle.js')).text();
+const __ATTACH = new Function(B + ';return __ATTACH;')();
+window.__ATTACH = __ATTACH;
+
+const q = new URLSearchParams(location.search);
+const mode = q.get('mode') || 'module';
+const view = q.get('view') || 'side';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15181c);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(1.2, 1.6, 1.0); scene.add(key);
+const fill = new THREE.DirectionalLight(0x9ec2ff, 0.8); fill.position.set(-1.4, 0.6, -0.8); scene.add(fill);
+scene.add(new THREE.HemisphereLight(0x8fa6c4, 0x1a1c1e, 0.5));
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.01, 100);
+
+let asm, api;
+if (mode === 'module') {
+  const key0 = q.get('m') || 'reddot_t2';
+  const built = __ATTACH.REG.build(key0, {});
+  asm = { parts: built.parts.map(p => ({ name: p.name, mat: p.mat, geo: p.geo, src: 'm' })),
+    nodes: {}, glass: (built.meta.glass || []).map(g => g), emissive: (built.meta.emissive || []),
+    reticles: built.meta.reticle ? [{ part: built.meta.reticle.part, color: 'red' }] : [],
+    emitters: [], modules: {}, derived: {}, warnings: [] };
+  document.getElementById('lbl').textContent = built.meta.name + '  [' + key0 + ']';
+  document.getElementById('sub').textContent =
+    'деталей ' + built.parts.length + ' · треугольников ' +
+    built.parts.reduce((s, p) => s + p.geo.p.length / 9, 0);
+} else {
+  const wk = q.get('w') || 'ak74';
+  const def = __ATTACH.SLOTS[wk];
+  const cfg = Object.assign({}, def.defaults);
+  for (const [k, v] of q.entries()) if (def.slots.some(s => s.key === k)) cfg[k] = (v === 'none' ? null : v);
+  const weapon = { caliber: def.caliber, weight: def.weight, ballistics: def.ballistics,
+    stats: {}, base: [], nodes: {}, slots: def.slots };
+  asm = __ATTACH.SYS.assemble(weapon, __ATTACH.REG, cfg);
+  document.getElementById('lbl').textContent = def.title + ' — ' +
+    Object.keys(asm.modules).map(k => k + ':' + asm.modules[k].key).join('  ');
+  document.getElementById('sub').textContent =
+    'деталей ' + asm.parts.length + ' · тр ' + asm.parts.reduce((s, p) => s + p.geo.p.length / 9, 0) +
+    (asm.warnings.length ? '\n⚠ ' + asm.warnings.join(' · ') : '');
+}
+api = __ATTACH.ADAPTER.build(THREE, asm, { scale: 0.001 });
+scene.add(api.root);
+api.setBeam('light', q.get('light') ? 1 : 0);
+api.setBeam('laser', q.get('laser') ? 1 : 0);
+if (q.get('deploy')) for (const k in asm.modules) api.setDeploy(k, 1);
+
+const box = new THREE.Box3().setFromObject(api.root);
+const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+const r = Math.max(sz.x, sz.y, sz.z) * 0.60;
+const d = r / Math.tan(THREE.MathUtils.degToRad(16));
+/* ось оружия — Z, поэтому «сбоку» = смотреть вдоль X */
+const dirs = { side: [1, 0.12, 0.02], top: [0.02, 1, 0.04], front: [0.12, 0.18, -1],
+  iso: [0.95, 0.42, 0.62], rear: [-0.25, 0.22, 1] };
+const v = dirs[view] || dirs.side;
+camera.position.set(c.x + v[0] * d, c.y + v[1] * d, c.z + v[2] * d);
+camera.lookAt(c);
+const ctr = new OrbitControls(camera, renderer.domElement);
+ctr.target.copy(c); ctr.update();
+renderer.render(scene, camera);
+renderer.setAnimationLoop(() => { ctr.update(); renderer.render(scene, camera); });
+window.__READY = true;
+</script></body></html>

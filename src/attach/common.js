@@ -26,6 +26,9 @@ module.exports = function (G) {
     nitride:  { color: [0.042, 0.043, 0.046], metal: 0.92, rough: 0.36 },  // нитрид/QPQ дульных устройств
     inconel:  { color: [0.205, 0.198, 0.186], metal: 1.00, rough: 0.41 },  // перегородки глушителя
     poly:     { color: [0.029, 0.030, 0.033], metal: 0.00, rough: 0.58 },
+    wood:     { color: [0.330, 0.130, 0.046], metal: 0.00, rough: 0.42 },  // лакированная берёза
+    woodDk:   { color: [0.198, 0.074, 0.026], metal: 0.00, rough: 0.48 },
+    bakelite: { color: [0.245, 0.072, 0.062], metal: 0.06, rough: 0.38 },  // «слива»
     rubber:   { color: [0.011, 0.011, 0.013], metal: 0.00, rough: 0.93 },
     glass:    { color: [0.560, 0.640, 0.620], metal: 0.00, rough: 0.05, alpha: 0.16, coat: 1 },
     glassAR:  { color: [0.180, 0.420, 0.360], metal: 0.10, rough: 0.05, alpha: 0.30, coat: 1 },  // просветление
