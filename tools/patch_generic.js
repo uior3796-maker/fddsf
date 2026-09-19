@@ -17,25 +17,30 @@ const RECIPES = [
     anchor: 'function buildAKM(THREE, opts = {}) {',
     after: `\tconst akm = buildAKM(THREE, {})\n\trig.add(akm)`,
     hostExpr: 'akm', magExpr: 'akm.parts && akm.parts.magazine',
-    muzzle: { find: '\tflash.position.copy(nodes.muzzle.position)', varName: 'flash' }
+    /* эти узлы базовой модели заменяются модулями и скрываются */
+    hide: ['stock', 'buttPlate', 'buttSerration', 'swivelRearBase', 'magBody', 'magLips',
+      'magFloor', 'magCatchLug', 'handguard', 'handguardLower', 'handguardUpper']
   },
   {
     file: 'm416.html', key: 'm416',
     anchor: 'function buildM416(THREE, opts = {}) {',
     after: `  gun = buildM416(THREE);\n  scene.add(gun);`,
-    hostExpr: 'gun', magExpr: 'gun.parts && gun.parts.magazine'
+    hostExpr: 'gun', magExpr: 'gun.parts && gun.parts.magazine',
+    hideGroups: ['stock', 'magazine']
   },
   {
     file: 'scar-h.html', key: 'scarh',
     anchor: 'function buildSCAR(THREE, opts = {}) {',
     after: `const gun = buildSCAR(THREE, {});`,
-    hostExpr: 'gun', magExpr: 'gun.parts && gun.parts.magazine'
+    hostExpr: 'gun', magExpr: 'gun.parts && gun.parts.magazine',
+    hideGroups: ['magazine', 'stock', 'stockBody']
   },
   {
     file: 'mp5a3.html', key: 'mp5a3',
     anchor: 'function buildMP5() {',
     after: `weapon.add(toObject(modelRoot));`,
-    hostExpr: 'weapon', magExpr: 'nodes && nodes.mag'
+    hostExpr: 'weapon', magExpr: 'reg && reg.magazine',
+    hideGroups: ['magazine', 'stock']
   }
 ];
 
@@ -65,6 +70,22 @@ function patchFile(rec) {
 
 ${HOOK}
 const ATTACH_HOST = ${rec.hostExpr};
+/* Скрыть детали базовой модели, которые заменяет модуль этого слота. */
+const ATTACH_HIDE_NAMES = ${JSON.stringify(rec.hide || [])};
+const ATTACH_HIDE_GROUPS = ${JSON.stringify(rec.hideGroups || [])};
+function attachHideBase() {
+  const names = new Set(ATTACH_HIDE_NAMES);
+  const groups = new Set(ATTACH_HIDE_GROUPS);
+  ATTACH_HOST.traverse((o) => {
+    if (o.userData && o.userData.attachModule) return;
+    if (names.has(o.name) || groups.has(o.name)) o.visible = false;
+  });
+  for (const gk of ATTACH_HIDE_GROUPS) {
+    const src = (typeof parts !== 'undefined' && parts && parts[gk]) ||
+      (typeof reg !== 'undefined' && reg && reg[gk]) || null;
+    if (src && src.visible !== undefined) src.visible = false;
+  }
+}
 const ATTACH_MAGHOST = () => (${rec.magExpr}) || null;
 let ATTACH_ASM = attachRebuildWeapon();
 
@@ -83,7 +104,10 @@ function attachRebuildWeapon() {
     scale: 0.001,
     parentFor: (slotKey) => (slotKey === 'mag' ? ATTACH_MAGHOST() : null)
   });
+  view.root.userData.attachModule = true;
+  view.root.traverse((o) => { o.userData.attachModule = true; });
   ATTACH_HOST.add(view.root);
+  attachHideBase();
   ATTACH_STATE.asm = asm;
   ATTACH_STATE.view = view;
   view.setBeam('light', ATTACH_STATE.toggles.light);

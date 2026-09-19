@@ -4389,8 +4389,9 @@ module.exports = function (G, C) {
         const g = new THREE.Group();
         g.name = 'slot:' + slot;
         /* хост может увести слот в свою анимируемую группу (магазин, затвор) */
-        const host = O.parentFor && O.parentFor(slot);
-        (host || root).add(g);
+        let host = O.parentFor && O.parentFor(slot);
+        if (host && typeof host.add !== 'function') host = host.group || host.obj || null;
+        (host && typeof host.add === 'function' ? host : root).add(g);
         slotGroups[slot] = g;
       }
       const key = slot + '|' + anim;

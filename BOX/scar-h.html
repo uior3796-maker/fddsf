@@ -3213,8 +3213,9 @@ module.exports = function (G, C) {
         const g = new THREE.Group();
         g.name = 'slot:' + slot;
         /* хост может увести слот в свою анимируемую группу (магазин, затвор) */
-        const host = O.parentFor && O.parentFor(slot);
-        (host || root).add(g);
+        let host = O.parentFor && O.parentFor(slot);
+        if (host && typeof host.add !== 'function') host = host.group || host.obj || null;
+        (host && typeof host.add === 'function' ? host : root).add(g);
         slotGroups[slot] = g;
       }
       const key = slot + '|' + anim;
@@ -5024,6 +5025,22 @@ const gun = buildSCAR(THREE, {});
 
 /* ATTACH: подключение (scarh) */
 const ATTACH_HOST = gun;
+/* Скрыть детали базовой модели, которые заменяет модуль этого слота. */
+const ATTACH_HIDE_NAMES = [];
+const ATTACH_HIDE_GROUPS = ["magazine","stock","stockBody"];
+function attachHideBase() {
+  const names = new Set(ATTACH_HIDE_NAMES);
+  const groups = new Set(ATTACH_HIDE_GROUPS);
+  ATTACH_HOST.traverse((o) => {
+    if (o.userData && o.userData.attachModule) return;
+    if (names.has(o.name) || groups.has(o.name)) o.visible = false;
+  });
+  for (const gk of ATTACH_HIDE_GROUPS) {
+    const src = (typeof parts !== 'undefined' && parts && parts[gk]) ||
+      (typeof reg !== 'undefined' && reg && reg[gk]) || null;
+    if (src && src.visible !== undefined) src.visible = false;
+  }
+}
 const ATTACH_MAGHOST = () => (gun.parts && gun.parts.magazine) || null;
 let ATTACH_ASM = attachRebuildWeapon();
 
@@ -5042,7 +5059,10 @@ function attachRebuildWeapon() {
     scale: 0.001,
     parentFor: (slotKey) => (slotKey === 'mag' ? ATTACH_MAGHOST() : null)
   });
+  view.root.userData.attachModule = true;
+  view.root.traverse((o) => { o.userData.attachModule = true; });
   ATTACH_HOST.add(view.root);
+  attachHideBase();
   ATTACH_STATE.asm = asm;
   ATTACH_STATE.view = view;
   view.setBeam('light', ATTACH_STATE.toggles.light);
