@@ -1,0 +1,2501 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IFAK Rip-Away Pouch — game-ready asset viewer</title>
+<style>
+  :root{
+    --canvas:#191919; --surface:rgba(28,28,28,.86); --raised:#383836;
+    --text:#fff; --text2:rgba(255,255,255,.66); --text3:rgba(255,255,255,.42);
+    --border:rgba(255,255,255,.16); --border2:rgba(255,255,255,.10);
+    --accent:#5E9FE8; --accent-soft:rgba(94,159,232,.16);
+    --green:#72BC8F; --orange:#DE9255; --red:#E97366;
+    --r:10px; --shadow:0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--canvas); color:var(--text); overflow:hidden;
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas#gl{position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:grab}
+  canvas#gl.dragging{cursor:grabbing}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:fixed; top:0; left:0; right:0; z-index:6; display:flex; gap:24px;
+    align-items:center; justify-content:space-between; padding:20px 24px;
+    background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0)); pointer-events:none}
+  .brand{display:flex; gap:14px; align-items:center}
+  .mark{width:44px; height:44px; flex:none; border-radius:12px; border:1px solid var(--border);
+    background:linear-gradient(160deg,#2b2b2a,#1b1b1a); display:grid; place-items:center; position:relative}
+  .mark::before,.mark::after{content:""; position:absolute; background:#c1453c; border-radius:1px}
+  .mark::before{width:20px; height:6px}
+  .mark::after{width:6px; height:20px}
+  .brand h1{margin:0; font-size:17px; font-weight:600; letter-spacing:.1px}
+  .brand p{margin:2px 0 0; font-size:14px; color:var(--text2)}
+  .badges{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+  .badge{font-size:14px; color:var(--text2); border:1px solid var(--border2); border-radius:999px;
+    padding:6px 12px; background:rgba(20,20,20,.6); white-space:nowrap}
+  .badge b{color:var(--text); font-weight:600}
+
+  /* ---------- panels ---------- */
+  .panel{position:fixed; z-index:5; width:272px; max-height:calc(100vh - 190px); overflow:auto;
+    background:var(--surface); backdrop-filter:blur(14px); border:1px solid var(--border2);
+    border-radius:var(--r); box-shadow:var(--shadow); padding:16px}
+  .panel.left{left:24px; top:104px}
+  .panel.right{right:24px; top:104px; width:296px}
+  .panel h2{margin:0 0 14px; font-size:14px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text3)}
+  .grp{margin-bottom:18px}
+  .grp:last-child{margin-bottom:4px}
+  .grp>label{display:block; font-size:14px; color:var(--text2); margin-bottom:8px}
+  .seg{display:flex; gap:6px}
+  .seg.wrap{flex-wrap:wrap}
+  .btn{appearance:none; -webkit-appearance:none; font:inherit; font-size:14px; color:var(--text2);
+    background:#232322; border:1px solid var(--border2); border-radius:8px; padding:0 12px;
+    min-height:44px; min-width:44px; flex:1 1 auto; cursor:pointer; transition:background .15s,color .15s,border-color .15s;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap}
+  .btn:hover{background:var(--raised); color:var(--text)}
+  .btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .btn[aria-pressed="true"]{background:var(--accent-soft); border-color:rgba(94,159,232,.55); color:#cfe4fb}
+  .btn.wide{width:100%; flex:none}
+  .btn .dot{width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.5}
+  .btn[aria-pressed="true"] .dot{opacity:1; background:var(--accent)}
+  .slider{display:flex; align-items:center; gap:10px}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:28px; background:transparent; cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:2px; background:#3a3a38}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; margin-top:-7px;
+    border-radius:50%; background:#e9e9e7; border:1px solid rgba(0,0,0,.4)}
+  input[type=range]::-moz-range-track{height:4px; border-radius:2px; background:#3a3a38}
+  input[type=range]::-moz-range-thumb{width:18px; height:18px; border:1px solid rgba(0,0,0,.4); border-radius:50%; background:#e9e9e7}
+  .val{font-size:14px; color:var(--text3); min-width:44px; text-align:right; font-variant-numeric:tabular-nums}
+
+  /* ---------- spec sheet ---------- */
+  .spec{display:grid; grid-template-columns:1fr auto; gap:9px 12px; font-size:14px; align-items:baseline}
+  .spec dt{color:var(--text3); margin:0}
+  .spec dd{margin:0; color:var(--text); text-align:right; font-variant-numeric:tabular-nums}
+  .rule{height:1px; background:var(--border2); margin:16px 0}
+  .mats{display:grid; gap:8px; font-size:14px}
+  .mat{display:flex; align-items:center; gap:10px; color:var(--text2)}
+  .chip{width:14px; height:14px; border-radius:4px; border:1px solid rgba(0,0,0,.5); flex:none}
+  .mat span.r{margin-left:auto; color:var(--text3); font-variant-numeric:tabular-nums}
+  .note{font-size:14px; color:var(--text3); margin:14px 0 0}
+
+  /* ---------- hint ---------- */
+  .hint{position:fixed; z-index:5; bottom:20px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center; padding:0 16px; pointer-events:none}
+  .hint span{font-size:14px; color:var(--text2); background:rgba(20,20,20,.72); border:1px solid var(--border2);
+    border-radius:999px; padding:6px 12px; backdrop-filter:blur(8px)}
+  .hint kbd{font:inherit; font-size:13px; color:var(--text); background:#2f2f2d; border:1px solid var(--border2);
+    border-radius:5px; padding:1px 6px; margin-right:2px}
+
+  /* ---------- loader / errors ---------- */
+  #loader{position:fixed; inset:0; z-index:20; background:#161616; display:grid; place-content:center;
+    justify-items:center; gap:18px; text-align:center; padding:24px; transition:opacity .5s}
+  #loader.hidden{opacity:0; pointer-events:none}
+  .spinner{width:38px; height:38px; border-radius:50%; border:3px solid rgba(255,255,255,.14);
+    border-top-color:var(--accent); animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loadText{font-size:16px; color:var(--text2)}
+  .bar{width:min(320px,70vw); height:4px; border-radius:2px; background:#2a2a29; overflow:hidden}
+  .bar i{display:block; height:100%; width:0%; background:var(--accent); transition:width .3s}
+  #fatal{position:fixed; inset:auto 16px 16px 16px; z-index:40; display:none; padding:14px 16px;
+    border-radius:10px; background:rgba(233,115,102,.14); border:1px solid rgba(233,115,102,.5);
+    color:#ffd9d4; font:14px/1.45 Menlo,Consolas,monospace; white-space:pre-wrap; max-height:40vh; overflow:auto}
+
+  @media (prefers-reduced-motion: reduce){ .spinner{animation:none} }
+  @media (max-width:1180px){
+    .panel.right{display:none}
+    .panel.right.show{display:block}
+  }
+  @media (max-width:900px){
+    .topbar{padding:14px 16px; gap:12px}
+    .brand p{display:none}
+    .badges{display:none}
+    .panel{position:fixed; left:12px; right:12px; width:auto; top:auto; bottom:12px; max-height:46vh}
+    .panel.left{left:12px; top:auto}
+    .panel.right{right:12px; bottom:12px}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"></div>
+    <div>
+      <h1>IFAK Rip-Away Pouch</h1>
+      <p>Тактическая аптечка · game-ready ассет · real-time PBR</p>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge">18 × 13 × 8 <b>см</b></span>
+    <span class="badge">4K <b>PBR</b></span>
+    <span class="badge" id="triBadge">— <b>тр.</b></span>
+    <span class="badge" id="fpsBadge">— <b>fps</b></span>
+  </div>
+</div>
+
+<aside class="panel left">
+  <h2>Просмотр</h2>
+
+  <div class="grp">
+    <label id="lblState">Состояние меша</label>
+    <div class="seg" role="group" aria-labelledby="lblState">
+      <button class="btn" id="stClosed" aria-pressed="true">Закрыто</button>
+      <button class="btn" id="stOpen" aria-pressed="false">Открыто</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label id="lblCh">Канал текстур</label>
+    <div class="seg wrap" role="group" aria-labelledby="lblCh">
+      <button class="btn ch" data-ch="0" aria-pressed="true">Финал</button>
+      <button class="btn ch" data-ch="1" aria-pressed="false">Albedo</button>
+      <button class="btn ch" data-ch="2" aria-pressed="false">Normal</button>
+      <button class="btn ch" data-ch="3" aria-pressed="false">Rough</button>
+      <button class="btn ch" data-ch="4" aria-pressed="false">AO</button>
+      <button class="btn ch" data-ch="5" aria-pressed="false">Metal</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Отображение</label>
+    <div class="seg">
+      <button class="btn" id="btnWire" aria-pressed="false"><i class="dot"></i>Каркас</button>
+      <button class="btn" id="btnSpin" aria-pressed="true"><i class="dot"></i>Вращение</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label for="expo">Экспозиция</label>
+    <div class="slider"><input type="range" id="expo" min="0.4" max="2.2" step="0.02" value="1"><span class="val" id="expoVal">1.00</span></div>
+  </div>
+
+  <div class="grp">
+    <label for="lrot">Поворот света</label>
+    <div class="slider"><input type="range" id="lrot" min="-90" max="90" step="1" value="0"><span class="val" id="lrotVal">0°</span></div>
+  </div>
+
+  <div class="grp">
+    <div class="seg">
+      <button class="btn" id="btnReset">Сброс камеры</button>
+    </div>
+    <div class="seg" style="margin-top:6px">
+      <button class="btn wide" id="btnShot">Сохранить PNG</button>
+    </div>
+    <div class="seg" style="margin-top:6px">
+      <button class="btn wide" id="btnSpec">Тех. паспорт</button>
+    </div>
+  </div>
+</aside>
+
+<aside class="panel right" id="specPanel">
+  <h2>Тех. паспорт</h2>
+  <dl class="spec">
+    <dt>Ассет</dt><dd>MED_IFAK_RipAway_01</dd>
+    <dt>Габариты</dt><dd>18 × 13 × 8 см</dd>
+    <dt>Масса</dt><dd>~700 г</dd>
+    <dt>Пивот</dt><dd>ручка переноски</dd>
+    <dt>LOD0 (цель)</dt><dd>~9 000 тр.</dd>
+    <dt>Меш вьюера</dt><dd id="triSpec">—</dd>
+    <dt>Топология</dt><dd>quad-dominant</dd>
+    <dt>UV</dt><dd>без наложений</dd>
+    <dt>Текстуры</dt><dd>4K, 1 сет</dd>
+    <dt>Карты</dt><dd>A / N / R / M / AO</dd>
+    <dt>Состояния</dt><dd>closed · open</dd>
+    <dt>Экспорт</dt><dd>UE5 · Unity</dd>
+  </dl>
+  <div class="rule"></div>
+  <h2>Материалы</h2>
+  <div class="mats">
+    <div class="mat"><i class="chip" style="background:#8a6f4a"></i>500D Cordura, coyote<span class="r">R .88</span></div>
+    <div class="mat"><i class="chip" style="background:#6d5738"></i>Стропа MOLLE<span class="r">R .82</span></div>
+    <div class="mat"><i class="chip" style="background:#4a4238"></i>Велкро (петля)<span class="r">R .94</span></div>
+    <div class="mat"><i class="chip" style="background:#b8babd"></i>Фольга, chest seal<span class="r">M 1.0</span></div>
+    <div class="mat"><i class="chip" style="background:#dcd6c8"></i>Стерильная бумага<span class="r">R .92</span></div>
+    <div class="mat"><i class="chip" style="background:#26262a"></i>Пластик, windlass<span class="r">R .28</span></div>
+    <div class="mat"><i class="chip" style="background:#3f6ea8"></i>Нитрил, перчатка<span class="r">R .45</span></div>
+    <div class="mat"><i class="chip" style="background:#b4352c"></i>Вышивка, крест<span class="r">R .74</span></div>
+  </div>
+  <p class="note">Износ: пыль в переплетении, затёртая ручка, засохшая грязь по нижнему шву, тёмное пятно крови на углу, выгоревшая на солнце нашивка.</p>
+</aside>
+
+<div class="hint">
+  <span><kbd>ЛКМ</kbd>вращение</span>
+  <span><kbd>колесо</kbd>зум</span>
+  <span><kbd>ПКМ</kbd>панорама</span>
+  <span><kbd>O</kbd>открыть / закрыть</span>
+  <span><kbd>1…6</kbd>каналы</span>
+  <span><kbd>W</kbd>каркас</span>
+</div>
+
+<div id="loader">
+  <div class="spinner" aria-hidden="true"></div>
+  <div id="loadText">Инициализация рендера…</div>
+  <div class="bar"><i id="loadBar"></i></div>
+</div>
+
+<div id="fatal" role="alert"></div>
+
+<script>
+"use strict";
+(function(){
+const fatalEl=document.getElementById("fatal");
+function fatal(msg){
+  try{
+    fatalEl.style.display="block";
+    fatalEl.textContent=String(msg).slice(0,1200);
+    window.__ifakError=String(msg);
+    const l=document.getElementById("loader"); if(l) l.classList.add("hidden");
+  }catch(e){}
+}
+window.addEventListener("error",function(e){ fatal("JS ERROR: "+e.message+"  ("+(e.lineno||0)+":"+(e.colno||0)+")"); });
+window.addEventListener("unhandledrejection",function(e){ fatal("PROMISE: "+(e.reason&&e.reason.message||e.reason)); });
+window.IFAK = window.IFAK || {};
+})();
+</script>
+<script>
+"use strict";
+/* ============================================================
+   IFAK POUCH VIEWER — part 1b: math, value noise, geometry kernel
+   Everything is authored in real-world metres.
+   Vertex layout: pos3 | nrm3 | uv2 (metres) | tan4 | edg2 (m to seam) | ao1
+   ============================================================ */
+(function (NS) {
+
+/* ----------------------------- math ----------------------------- */
+const DEG = Math.PI / 180;
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function smoothstep(e0, e1, x) { const d = (e1 - e0) || 1e-9; const t = clamp((x - e0) / d, 0, 1); return t * t * (3 - 2 * t); }
+
+function m4id() { return [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]; }
+
+function m4mul(a, b) {
+  const o = new Array(16);
+  for (let c = 0; c < 4; c++) {
+    const b0 = b[c*4], b1 = b[c*4+1], b2 = b[c*4+2], b3 = b[c*4+3];
+    for (let r = 0; r < 4; r++) o[c*4+r] = a[r]*b0 + a[4+r]*b1 + a[8+r]*b2 + a[12+r]*b3;
+  }
+  return o;
+}
+
+function m4persp(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy * 0.5), nf = 1 / (near - far);
+  return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
+}
+
+function m4ortho(l, r, b, t, n, f) {
+  const lr = 1/(l-r), bt = 1/(b-t), nf = 1/(n-f);
+  return [-2*lr,0,0,0, 0,-2*bt,0,0, 0,0,2*nf,0, (l+r)*lr,(t+b)*bt,(f+n)*nf,1];
+}
+
+function m4look(eye, center, up) {
+  let zx = eye[0]-center[0], zy = eye[1]-center[1], zz = eye[2]-center[2];
+  let l = Math.hypot(zx, zy, zz) || 1; zx/=l; zy/=l; zz/=l;
+  let xx = up[1]*zz - up[2]*zy, xy = up[2]*zx - up[0]*zz, xz = up[0]*zy - up[1]*zx;
+  l = Math.hypot(xx, xy, xz);
+  if (l < 1e-7) { xx = 1; xy = 0; xz = 0; } else { xx/=l; xy/=l; xz/=l; }
+  const yx = zy*xz - zz*xy, yy = zz*xx - zx*xz, yz = zx*xy - zy*xx;
+  return [xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+    -(xx*eye[0]+xy*eye[1]+xz*eye[2]),
+    -(yx*eye[0]+yy*eye[1]+yz*eye[2]),
+    -(zx*eye[0]+zy*eye[1]+zz*eye[2]), 1];
+}
+
+/* translate * rotate(XYZ) * scale */
+function m4trs(t, r, s) {
+  t = t || [0,0,0]; r = r || [0,0,0]; s = (s === undefined || s === null) ? [1,1,1] : s;
+  if (typeof s === "number") s = [s,s,s];
+  const cx = Math.cos(r[0]), sx = Math.sin(r[0]);
+  const cy = Math.cos(r[1]), sy = Math.sin(r[1]);
+  const cz = Math.cos(r[2]), sz = Math.sin(r[2]);
+  const m00 = cz*cy, m01 = cz*sy*sx - sz*cx, m02 = cz*sy*cx + sz*sx;
+  const m10 = sz*cy, m11 = sz*sy*sx + cz*cx, m12 = sz*sy*cx - cz*sx;
+  const m20 = -sy,   m21 = cy*sx,            m22 = cy*cx;
+  return [
+    m00*s[0], m10*s[0], m20*s[0], 0,
+    m01*s[1], m11*s[1], m21*s[1], 0,
+    m02*s[2], m12*s[2], m22*s[2], 0,
+    t[0], t[1], t[2], 1
+  ];
+}
+
+function m4inv(m) {
+  const a00=m[0],a01=m[1],a02=m[2],a03=m[3], a10=m[4],a11=m[5],a12=m[6],a13=m[7],
+        a20=m[8],a21=m[9],a22=m[10],a23=m[11], a30=m[12],a31=m[13],a32=m[14],a33=m[15];
+  const b00=a00*a11-a01*a10, b01=a00*a12-a02*a10, b02=a00*a13-a03*a10,
+        b03=a01*a12-a02*a11, b04=a01*a13-a03*a11, b05=a02*a13-a03*a12,
+        b06=a20*a31-a21*a30, b07=a20*a32-a22*a30, b08=a20*a33-a23*a30,
+        b09=a21*a32-a22*a31, b10=a21*a33-a23*a31, b11=a22*a33-a23*a32;
+  let det = b00*b11 - b01*b10 + b02*b09 + b03*b08 - b04*b07 + b05*b06;
+  if (!det) return m4id();
+  det = 1/det;
+  return [
+    (a11*b11-a12*b10+a13*b09)*det, (a02*b10-a01*b11-a03*b09)*det,
+    (a31*b05-a32*b04+a33*b03)*det, (a22*b04-a21*b05-a23*b03)*det,
+    (a12*b08-a10*b11-a13*b07)*det, (a00*b11-a02*b08+a03*b07)*det,
+    (a32*b02-a30*b05-a33*b01)*det, (a20*b05-a22*b02+a23*b01)*det,
+    (a10*b10-a11*b08+a13*b06)*det, (a01*b08-a00*b10-a03*b06)*det,
+    (a30*b04-a31*b02+a33*b00)*det, (a21*b02-a20*b04-a23*b00)*det,
+    (a11*b07-a10*b09-a12*b06)*det, (a00*b09-a01*b07+a02*b06)*det,
+    (a31*b01-a30*b03-a32*b00)*det, (a20*b03-a21*b01+a22*b00)*det
+  ];
+}
+
+/* inverse-transpose of the upper-left 3x3, column-major mat3 */
+function m3normal(m) {
+  const A = (r, c) => m[c*4+r];
+  const A00=A(0,0),A01=A(0,1),A02=A(0,2),
+        A10=A(1,0),A11=A(1,1),A12=A(1,2),
+        A20=A(2,0),A21=A(2,1),A22=A(2,2);
+  const c00 =  (A11*A22 - A12*A21), c01 = -(A10*A22 - A12*A20), c02 =  (A10*A21 - A11*A20);
+  const c10 = -(A01*A22 - A02*A21), c11 =  (A00*A22 - A02*A20), c12 = -(A00*A21 - A01*A20);
+  const c20 =  (A01*A12 - A02*A11), c21 = -(A00*A12 - A02*A10), c22 =  (A00*A11 - A01*A10);
+  let det = A00*c00 + A01*c01 + A02*c02;
+  if (Math.abs(det) < 1e-20) return [1,0,0, 0,1,0, 0,0,1];
+  const d = 1/det;
+  return [c00*d, c10*d, c20*d, c01*d, c11*d, c21*d, c02*d, c12*d, c22*d];
+}
+
+/* ---------------------------- noise ----------------------------- */
+function h3(x, y, z) {
+  const s = Math.sin(x*127.1 + y*311.7 + z*74.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf), w = zf*zf*(3-2*zf);
+  const c000 = h3(xi,yi,zi),       c100 = h3(xi+1,yi,zi);
+  const c010 = h3(xi,yi+1,zi),     c110 = h3(xi+1,yi+1,zi);
+  const c001 = h3(xi,yi,zi+1),     c101 = h3(xi+1,yi,zi+1);
+  const c011 = h3(xi,yi+1,zi+1),   c111 = h3(xi+1,yi+1,zi+1);
+  const x00 = lerp(c000,c100,u), x10 = lerp(c010,c110,u);
+  const x01 = lerp(c001,c101,u), x11 = lerp(c011,c111,u);
+  return lerp(lerp(x00,x10,v), lerp(x01,x11,v), w);
+}
+function fbm(x, y, z, oct) {
+  oct = Math.max(1, oct || 3);
+  let a = 0.5, sum = 0, norm = 0;
+  for (let i = 0; i < oct; i++) {
+    sum += a * vnoise(x, y, z); norm += a;
+    x = x*2.03 + 11.3; y = y*2.01 - 7.1; z = z*1.99 + 3.7; a *= 0.5;
+  }
+  return sum / (norm || 1);
+}
+
+/* --------------------------- geometry --------------------------- */
+function newGeo(name) {
+  return { name: name || "geo", pos: [], nrm: [], uv: [], tan: [], edg: [], ao: [], idx: [], edges: [] };
+}
+
+function gv(g, x, y, z, nx, ny, nz, u, v, e0, e1, ao) {
+  const i = g.pos.length / 3;
+  g.pos.push(x, y, z);
+  g.nrm.push(nx, ny, nz);
+  g.uv.push(u || 0, v || 0);
+  g.tan.push(1, 0, 0, 1);
+  g.edg.push(e0 === undefined ? 9 : e0, e1 === undefined ? 9 : e1);
+  g.ao.push(ao === undefined ? 1 : ao);
+  return i;
+}
+
+function quad(g, a, b, c, d, flip) {
+  if (flip) g.idx.push(a, c, b, a, d, c);
+  else g.idx.push(a, b, c, a, c, d);
+  g.edges.push(a, b, b, c, c, d, d, a);
+}
+
+/* orientation-safe helpers (winding derived from vertex normals) */
+function faceFlip(g, a, b, c) {
+  const p = g.pos;
+  const ax = p[a*3], ay = p[a*3+1], az = p[a*3+2];
+  const ux = p[b*3]-ax, uy = p[b*3+1]-ay, uz = p[b*3+2]-az;
+  const vx = p[c*3]-ax, vy = p[c*3+1]-ay, vz = p[c*3+2]-az;
+  const cx = uy*vz - uz*vy, cy = uz*vx - ux*vz, cz = ux*vy - uy*vx;
+  const n = g.nrm;
+  const mx = n[a*3]+n[b*3]+n[c*3], my = n[a*3+1]+n[b*3+1]+n[c*3+1], mz = n[a*3+2]+n[b*3+2]+n[c*3+2];
+  return (cx*mx + cy*my + cz*mz) < 0;
+}
+function quadAuto(g, a, b, c, d) { quad(g, a, b, c, d, faceFlip(g, a, b, c)); }
+function triAuto(g, a, b, c) {
+  if (faceFlip(g, a, b, c)) g.idx.push(a, c, b); else g.idx.push(a, b, c);
+  g.edges.push(a, b, b, c, c, a);
+}
+
+function triCount(g) { return g.idx.length / 3; }
+
+function transformGeo(g, m) {
+  const nm = m3normal(m), p = g.pos, n = g.nrm, t = g.tan;
+  for (let i = 0; i < p.length; i += 3) {
+    const x = p[i], y = p[i+1], z = p[i+2];
+    p[i]   = m[0]*x + m[4]*y + m[8]*z  + m[12];
+    p[i+1] = m[1]*x + m[5]*y + m[9]*z  + m[13];
+    p[i+2] = m[2]*x + m[6]*y + m[10]*z + m[14];
+    const a = n[i], b = n[i+1], c = n[i+2];
+    let nx = nm[0]*a + nm[3]*b + nm[6]*c;
+    let ny = nm[1]*a + nm[4]*b + nm[7]*c;
+    let nz = nm[2]*a + nm[5]*b + nm[8]*c;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    n[i] = nx/l; n[i+1] = ny/l; n[i+2] = nz/l;
+  }
+  for (let i = 0; i < t.length; i += 4) {
+    const a = t[i], b = t[i+1], c = t[i+2];
+    let tx = m[0]*a + m[4]*b + m[8]*c;
+    let ty = m[1]*a + m[5]*b + m[9]*c;
+    let tz = m[2]*a + m[6]*b + m[10]*c;
+    const l = Math.hypot(tx, ty, tz) || 1;
+    t[i] = tx/l; t[i+1] = ty/l; t[i+2] = tz/l;
+  }
+  return g;
+}
+
+function mergeGeo(dst, src, m) {
+  const off = dst.pos.length / 3;
+  const nm = m ? m3normal(m) : null;
+  const p = src.pos, n = src.nrm, t = src.tan;
+  for (let i = 0; i < p.length; i += 3) {
+    const x = p[i], y = p[i+1], z = p[i+2];
+    if (m) {
+      dst.pos.push(m[0]*x + m[4]*y + m[8]*z + m[12], m[1]*x + m[5]*y + m[9]*z + m[13], m[2]*x + m[6]*y + m[10]*z + m[14]);
+      const a = n[i], b = n[i+1], c = n[i+2];
+      let nx = nm[0]*a + nm[3]*b + nm[6]*c, ny = nm[1]*a + nm[4]*b + nm[7]*c, nz = nm[2]*a + nm[5]*b + nm[8]*c;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      dst.nrm.push(nx/l, ny/l, nz/l);
+    } else {
+      dst.pos.push(x, y, z);
+      dst.nrm.push(n[i], n[i+1], n[i+2]);
+    }
+  }
+  for (let i = 0; i < t.length; i += 4) {
+    const a = t[i], b = t[i+1], c = t[i+2];
+    if (m) {
+      let tx = m[0]*a + m[4]*b + m[8]*c, ty = m[1]*a + m[5]*b + m[9]*c, tz = m[2]*a + m[6]*b + m[10]*c;
+      const l = Math.hypot(tx, ty, tz) || 1;
+      dst.tan.push(tx/l, ty/l, tz/l, t[i+3]);
+    } else dst.tan.push(a, b, c, t[i+3]);
+  }
+  for (let i = 0; i < src.uv.length; i++) dst.uv.push(src.uv[i]);
+  for (let i = 0; i < src.edg.length; i++) dst.edg.push(src.edg[i]);
+  for (let i = 0; i < src.ao.length; i++) dst.ao.push(src.ao[i]);
+  for (let i = 0; i < src.idx.length; i++) dst.idx.push(src.idx[i] + off);
+  for (let i = 0; i < src.edges.length; i++) dst.edges.push(src.edges[i] + off);
+  return dst;
+}
+
+function flipGeo(g) {
+  const idx = g.idx;
+  for (let i = 0; i < idx.length; i += 3) { const t = idx[i+1]; idx[i+1] = idx[i+2]; idx[i+2] = t; }
+  for (let i = 0; i < g.nrm.length; i++) g.nrm[i] = -g.nrm[i];
+  return g;
+}
+
+/* smooth normals, welded by position so multi-patch shapes stay seamless */
+function recomputeNormals(g) {
+  const p = g.pos, idx = g.idx, nv = p.length / 3;
+  const acc = new Float64Array(nv * 3);
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i], b = idx[i+1], c = idx[i+2];
+    const ax = p[a*3], ay = p[a*3+1], az = p[a*3+2];
+    const ux = p[b*3]-ax, uy = p[b*3+1]-ay, uz = p[b*3+2]-az;
+    const vx = p[c*3]-ax, vy = p[c*3+1]-ay, vz = p[c*3+2]-az;
+    const nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;
+    acc[a*3]+=nx; acc[a*3+1]+=ny; acc[a*3+2]+=nz;
+    acc[b*3]+=nx; acc[b*3+1]+=ny; acc[b*3+2]+=nz;
+    acc[c*3]+=nx; acc[c*3+1]+=ny; acc[c*3+2]+=nz;
+  }
+  const Q = 20000, map = new Map(), keys = new Array(nv);
+  for (let v = 0; v < nv; v++) {
+    const k = Math.round(p[v*3]*Q) + "|" + Math.round(p[v*3+1]*Q) + "|" + Math.round(p[v*3+2]*Q);
+    keys[v] = k;
+    let e = map.get(k);
+    if (!e) { e = [0,0,0]; map.set(k, e); }
+    e[0]+=acc[v*3]; e[1]+=acc[v*3+1]; e[2]+=acc[v*3+2];
+  }
+  for (let v = 0; v < nv; v++) {
+    const e = map.get(keys[v]);
+    const l = Math.hypot(e[0], e[1], e[2]);
+    if (l > 1e-14) { g.nrm[v*3] = e[0]/l; g.nrm[v*3+1] = e[1]/l; g.nrm[v*3+2] = e[2]/l; }
+  }
+  return g;
+}
+
+function computeTangents(g) {
+  const p = g.pos, uv = g.uv, idx = g.idx, nv = p.length / 3;
+  const tanA = new Float64Array(nv * 3), bitA = new Float64Array(nv * 3);
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i], b = idx[i+1], c = idx[i+2];
+    const x1 = p[b*3]-p[a*3], y1 = p[b*3+1]-p[a*3+1], z1 = p[b*3+2]-p[a*3+2];
+    const x2 = p[c*3]-p[a*3], y2 = p[c*3+1]-p[a*3+1], z2 = p[c*3+2]-p[a*3+2];
+    const s1 = uv[b*2]-uv[a*2], t1 = uv[b*2+1]-uv[a*2+1];
+    const s2 = uv[c*2]-uv[a*2], t2 = uv[c*2+1]-uv[a*2+1];
+    const det = s1*t2 - s2*t1;
+    if (Math.abs(det) < 1e-16) continue;
+    const r = 1/det;
+    const tx = (t2*x1 - t1*x2)*r, ty = (t2*y1 - t1*y2)*r, tz = (t2*z1 - t1*z2)*r;
+    const bx = (s1*x2 - s2*x1)*r, by = (s1*y2 - s2*y1)*r, bz = (s1*z2 - s2*z1)*r;
+    tanA[a*3]+=tx; tanA[a*3+1]+=ty; tanA[a*3+2]+=tz;
+    tanA[b*3]+=tx; tanA[b*3+1]+=ty; tanA[b*3+2]+=tz;
+    tanA[c*3]+=tx; tanA[c*3+1]+=ty; tanA[c*3+2]+=tz;
+    bitA[a*3]+=bx; bitA[a*3+1]+=by; bitA[a*3+2]+=bz;
+    bitA[b*3]+=bx; bitA[b*3+1]+=by; bitA[b*3+2]+=bz;
+    bitA[c*3]+=bx; bitA[c*3+1]+=by; bitA[c*3+2]+=bz;
+  }
+  const n = g.nrm, t = g.tan;
+  if (t.length !== nv*4) { t.length = 0; for (let v = 0; v < nv; v++) t.push(1,0,0,1); }
+  for (let v = 0; v < nv; v++) {
+    const nx = n[v*3], ny = n[v*3+1], nz = n[v*3+2];
+    let tx = tanA[v*3], ty = tanA[v*3+1], tz = tanA[v*3+2];
+    const dot = tx*nx + ty*ny + tz*nz;
+    tx -= nx*dot; ty -= ny*dot; tz -= nz*dot;
+    let l = Math.hypot(tx, ty, tz);
+    if (l < 1e-12) {
+      tx = Math.abs(nx) < 0.9 ? 1 : 0; ty = Math.abs(nx) < 0.9 ? 0 : 1; tz = 0;
+      const d2 = tx*nx + ty*ny + tz*nz;
+      tx -= nx*d2; ty -= ny*d2; tz -= nz*d2;
+      l = Math.hypot(tx, ty, tz) || 1;
+    }
+    tx/=l; ty/=l; tz/=l;
+    const cx = ny*tz - nz*ty, cy = nz*tx - nx*tz, cz = nx*ty - ny*tx;
+    const w = (cx*bitA[v*3] + cy*bitA[v*3+1] + cz*bitA[v*3+2]) < 0 ? -1 : 1;
+    t[v*4] = tx; t[v*4+1] = ty; t[v*4+2] = tz; t[v*4+3] = w;
+  }
+  return g;
+}
+
+function finishGeo(g, opt) {
+  opt = opt || {};
+  if (opt.smooth !== false) recomputeNormals(g);
+  computeTangents(g);
+  return g;
+}
+
+/* ---------------- rounded box (Minkowski box + sphere) ----------------
+   opt: { name, warp(x,y,z,nx,ny,nz,eu,ev)->displacement along normal }
+   edg = metres from the flat panel border (0 on the rounded rim)        */
+function roundedBox(w, h, d, r, seg, opt) {
+  opt = opt || {};
+  seg = Math.max(4, seg || 12);
+  const half = [w*0.5, h*0.5, d*0.5];
+  r = Math.max(1e-5, Math.min(r, Math.min(half[0], Math.min(half[1], half[2])) * 0.995));
+  const core = [Math.max(half[0]-r, 0), Math.max(half[1]-r, 0), Math.max(half[2]-r, 0)];
+  const g = newGeo(opt.name || "box");
+  const warp = opt.warp || null;
+  const cell = Math.max(Math.max(w, Math.max(h, d)) / seg, r * 0.30, 1e-4);
+  const na = Math.max(2, Math.round(seg / 4));
+  const div = len => Math.max(1, Math.min(56, Math.round(len / cell)));
+
+  function put(p, n, eu, ev) {
+    const ax = Math.abs(n[0]), ay = Math.abs(n[1]), az = Math.abs(n[2]);
+    let u, v;
+    if (ax >= ay && ax >= az) { u = p[2]; v = p[1]; }
+    else if (ay >= ax && ay >= az) { u = p[0]; v = p[2]; }
+    else { u = p[0]; v = p[1]; }
+    let dsp = 0;
+    if (warp) dsp = warp(p[0], p[1], p[2], n[0], n[1], n[2], eu, ev) || 0;
+    return gv(g, p[0]+n[0]*dsp, p[1]+n[1]*dsp, p[2]+n[2]*dsp, n[0], n[1], n[2], u, v, eu, ev, 1);
+  }
+
+  /* 6 flat panels */
+  for (let a = 0; a < 3; a++) {
+    const u = (a+1)%3, v = (a+2)%3;
+    for (let s = -1; s <= 1; s += 2) {
+      const nu = div(core[u]*2), nv = div(core[v]*2);
+      const grid = [];
+      for (let i = 0; i <= nu; i++) {
+        const pu = core[u] ? -core[u] + core[u]*2*(i/nu) : 0;
+        const row = [];
+        for (let j = 0; j <= nv; j++) {
+          const pv = core[v] ? -core[v] + core[v]*2*(j/nv) : 0;
+          const p = [0,0,0], n = [0,0,0];
+          p[a] = s*half[a]; p[u] = pu; p[v] = pv; n[a] = s;
+          row.push(put(p, n, core[u]-Math.abs(pu), core[v]-Math.abs(pv)));
+        }
+        grid.push(row);
+      }
+      for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++)
+        quadAuto(g, grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]);
+    }
+  }
+
+  /* 12 rounded edges (quarter cylinders) */
+  for (let a = 0; a < 3; a++) {
+    const b = (a+1)%3, c = (a+2)%3;
+    for (let sa = -1; sa <= 1; sa += 2) for (let sb = -1; sb <= 1; sb += 2) {
+      const nl = div(core[c]*2), grid = [];
+      for (let i = 0; i <= nl; i++) {
+        const pc = core[c] ? -core[c] + core[c]*2*(i/nl) : 0;
+        const row = [];
+        for (let j = 0; j <= na; j++) {
+          const t = (j/na) * Math.PI * 0.5;
+          const n = [0,0,0], p = [0,0,0];
+          n[a] = sa*Math.cos(t); n[b] = sb*Math.sin(t); n[c] = 0;
+          p[a] = sa*core[a] + r*n[a]; p[b] = sb*core[b] + r*n[b]; p[c] = pc;
+          row.push(put(p, n, 0, core[c]-Math.abs(pc)));
+        }
+        grid.push(row);
+      }
+      for (let i = 0; i < nl; i++) for (let j = 0; j < na; j++)
+        quadAuto(g, grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]);
+    }
+  }
+
+  /* 8 corner octants (fan at the pole, quads elsewhere) */
+  for (let sx = -1; sx <= 1; sx += 2) for (let sy = -1; sy <= 1; sy += 2) for (let sz = -1; sz <= 1; sz += 2) {
+    const rows = [];
+    const pole = put([sx*core[0], sy*core[1] + r*sy, sz*core[2]], [0, sy, 0], 0, 0);
+    for (let i = 1; i <= na; i++) {
+      const phi = (i/na) * Math.PI * 0.5, sp = Math.sin(phi), cp = Math.cos(phi);
+      const row = [];
+      for (let j = 0; j <= na; j++) {
+        const th = (j/na) * Math.PI * 0.5;
+        const n = [sx*sp*Math.sin(th), sy*cp, sz*sp*Math.cos(th)];
+        const p = [sx*core[0] + r*n[0], sy*core[1] + r*n[1], sz*core[2] + r*n[2]];
+        row.push(put(p, n, 0, 0));
+      }
+      rows.push(row);
+    }
+    for (let j = 0; j < na; j++) triAuto(g, pole, rows[0][j], rows[0][j+1]);
+    for (let i = 0; i < na-1; i++) for (let j = 0; j < na; j++)
+      quadAuto(g, rows[i][j], rows[i][j+1], rows[i+1][j+1], rows[i+1][j]);
+  }
+
+  if (warp) recomputeNormals(g);
+  return computeTangents(g);
+}
+
+/* ------------------------- cylinder / cone ------------------------- */
+function cylinder(r1, r2, h, seg, opt) {
+  opt = opt || {};
+  seg = Math.max(3, seg || 12);
+  const rings = Math.max(1, opt.rings || 1), capRings = Math.max(1, opt.capRings || 1);
+  const capBottom = opt.capBottom !== false, capTop = opt.capTop !== false;
+  const g = newGeo(opt.name || "cyl");
+  const slope = (r1 - r2) / (h || 1e-6);
+  const grid = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = (i/seg) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    const row = [];
+    for (let j = 0; j <= rings; j++) {
+      const t = j/rings, y = -h*0.5 + h*t, rr = lerp(r1, r2, t);
+      let nx = ca, ny = slope, nz = sa;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      row.push(gv(g, ca*rr, y, sa*rr, nx/l, ny/l, nz/l, a*(r1+r2)*0.5, y, Math.min(t, 1-t)*h, 9, 1));
+    }
+    grid.push(row);
+  }
+  for (let i = 0; i < seg; i++) for (let j = 0; j < rings; j++)
+    quadAuto(g, grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]);
+
+  function cap(y, rad, ny) {
+    if (rad <= 1e-6) return;
+    const center = gv(g, 0, y, 0, 0, ny, 0, 0, 0, rad, 9, 1);
+    const rows = [];
+    for (let j = 1; j <= capRings; j++) {
+      const rr = rad * (j/capRings), row = [];
+      for (let i = 0; i <= seg; i++) {
+        const a = (i/seg) * Math.PI * 2, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
+        row.push(gv(g, x, y, z, 0, ny, 0, x, z, rad-rr, 9, 1));
+      }
+      rows.push(row);
+    }
+    for (let i = 0; i < seg; i++) triAuto(g, center, rows[0][i], rows[0][i+1]);
+    for (let j = 0; j < capRings-1; j++) for (let i = 0; i < seg; i++)
+      quadAuto(g, rows[j][i], rows[j][i+1], rows[j+1][i+1], rows[j+1][i]);
+  }
+  if (capBottom) cap(-h*0.5, r1, -1);
+  if (capTop) cap(h*0.5, r2, 1);
+  return computeTangents(g);
+}
+
+/* --------------------- tube swept along 3D points --------------------- */
+function tube(pts, radius, seg, opt) {
+  opt = opt || {};
+  seg = Math.max(3, seg || 8);
+  const g = newGeo(opt.name || "tube");
+  const P = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (i === 0 || Math.hypot(p[0]-P[P.length-1][0], p[1]-P[P.length-1][1], p[2]-P[P.length-1][2]) > 1e-7) P.push([p[0], p[1], p[2]]);
+  }
+  const n = P.length;
+  if (n < 2) return g;
+  const T = [];
+  for (let i = 0; i < n; i++) {
+    const a = P[Math.max(0, i-1)], b = P[Math.min(n-1, i+1)];
+    let tx = b[0]-a[0], ty = b[1]-a[1], tz = b[2]-a[2];
+    const l = Math.hypot(tx, ty, tz) || 1;
+    T.push([tx/l, ty/l, tz/l]);
+  }
+  const cum = [0];
+  for (let i = 1; i < n; i++) cum.push(cum[i-1] + Math.hypot(P[i][0]-P[i-1][0], P[i][1]-P[i-1][1], P[i][2]-P[i-1][2]));
+  const total = cum[n-1] || 1;
+  /* parallel transport frame */
+  let up = Math.abs(T[0][1]) > 0.9 ? [1,0,0] : [0,1,0];
+  let nx = up[1]*T[0][2] - up[2]*T[0][1], ny = up[2]*T[0][0] - up[0]*T[0][2], nz = up[0]*T[0][1] - up[1]*T[0][0];
+  let l0 = Math.hypot(nx, ny, nz) || 1; nx/=l0; ny/=l0; nz/=l0;
+  const grid = [];
+  for (let i = 0; i < n; i++) {
+    if (i > 0) {
+      const t = T[i];
+      const dot = nx*t[0] + ny*t[1] + nz*t[2];
+      nx -= t[0]*dot; ny -= t[1]*dot; nz -= t[2]*dot;
+      const l = Math.hypot(nx, ny, nz);
+      if (l < 1e-8) { const alt = Math.abs(t[1]) > 0.9 ? [1,0,0] : [0,1,0];
+        nx = alt[1]*t[2] - alt[2]*t[1]; ny = alt[2]*t[0] - alt[0]*t[2]; nz = alt[0]*t[1] - alt[1]*t[0];
+        const l2 = Math.hypot(nx, ny, nz) || 1; nx/=l2; ny/=l2; nz/=l2;
+      } else { nx/=l; ny/=l; nz/=l; }
+    }
+    const t = T[i];
+    const bx = t[1]*nz - t[2]*ny, by = t[2]*nx - t[0]*nz, bz = t[0]*ny - t[1]*nx;
+    const s = cum[i] / total;
+    const rad = (typeof radius === "function") ? radius(s) : radius;
+    const row = [];
+    for (let j = 0; j <= seg; j++) {
+      const a = (j/seg) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      const dx = nx*ca + bx*sa, dy = ny*ca + by*sa, dz = nz*ca + bz*sa;
+      row.push(gv(g, P[i][0]+dx*rad, P[i][1]+dy*rad, P[i][2]+dz*rad, dx, dy, dz, a*rad, cum[i], Math.min(cum[i], total-cum[i]), 9, 1));
+    }
+    grid.push(row);
+  }
+  for (let i = 0; i < n-1; i++) for (let j = 0; j < seg; j++)
+    quadAuto(g, grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]);
+  if (opt.caps !== false) {
+    for (const end of [0, n-1]) {
+      const t = T[end], sgn = end === 0 ? -1 : 1;
+      const c = gv(g, P[end][0], P[end][1], P[end][2], t[0]*sgn, t[1]*sgn, t[2]*sgn, 0, cum[end], 0, 9, 1);
+      for (let j = 0; j < seg; j++) triAuto(g, c, grid[end][j], grid[end][j+1]);
+    }
+  }
+  return computeTangents(g);
+}
+
+/* -------------------- 2D path in the (Y,Z) plane -------------------- */
+function arcPts(cy, cz, rad, a0, a1, n) {
+  const out = [];
+  n = Math.max(2, n || 8);
+  for (let i = 0; i <= n; i++) { const a = lerp(a0, a1, i/n); out.push([cy + Math.cos(a)*rad, cz + Math.sin(a)*rad]); }
+  return out;
+}
+
+function buildPath(pts) {
+  const src = pts.map(p => [p[0], p[1]]);
+  const N = src.length;
+  const at = i => src[clamp(i, 0, N-1)];
+  const cr = (a, b, c, d, t) => {
+    const t2 = t*t, t3 = t2*t;
+    return 0.5 * ((2*b) + (-a + c)*t + (2*a - 5*b + 4*c - d)*t2 + (-a + 3*b - 3*c + d)*t3);
+  };
+  const out = [];
+  const SUB = 8;
+  for (let i = 0; i < N-1; i++) {
+    const p0 = at(i-1), p1 = at(i), p2 = at(i+1), p3 = at(i+2);
+    for (let k = 0; k < SUB; k++) {
+      const t = k/SUB;
+      out.push([cr(p0[0], p1[0], p2[0], p3[0], t), cr(p0[1], p1[1], p2[1], p3[1], t)]);
+    }
+  }
+  out.push([src[N-1][0], src[N-1][1]]);
+  const cum = [0];
+  for (let i = 1; i < out.length; i++) cum.push(cum[i-1] + Math.hypot(out[i][0]-out[i-1][0], out[i][1]-out[i-1][1]));
+  const L = cum[cum.length-1];
+  return {
+    length: L,
+    pts: out,
+    at: function (s) {
+      s = clamp(s, 0, L);
+      let lo = 0, hi = cum.length - 1;
+      while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (cum[mid] <= s) lo = mid; else hi = mid; }
+      const span = (cum[hi] - cum[lo]) || 1e-9, t = (s - cum[lo]) / span;
+      const y = lerp(out[lo][0], out[hi][0], t), z = lerp(out[lo][1], out[hi][1], t);
+      let ty = out[hi][0] - out[lo][0], tz = out[hi][1] - out[lo][1];
+      const l = Math.hypot(ty, tz) || 1; ty /= l; tz /= l;
+      return [y, z, tz, -ty];
+    }
+  };
+}
+
+/* bend a Y-extruded geometry onto a 2D path (Y -> arc length, Z -> normal) */
+function applyPath(g, path, halfLen, opt) {
+  opt = opt || {};
+  const L = path.length, jit = opt.jitter || null;
+  const p = g.pos, n = g.nrm, t = g.tan, nv = p.length / 3;
+  for (let v = 0; v < nv; v++) {
+    const x = p[v*3], y = p[v*3+1], z = p[v*3+2];
+    const sRaw = y + halfLen, s = clamp(sRaw, 0, L), over = sRaw - s;
+    const c = path.at(s), ny = c[2], nz = c[3], ty = -nz, tz = ny;
+    const j = jit ? (jit(x, s, z) || 0) : 0;
+    const off = z + j;
+    p[v*3+1] = c[0] + ny*off + ty*over;
+    p[v*3+2] = c[1] + nz*off + tz*over;
+    const a = n[v*3+1], b = n[v*3+2];
+    n[v*3+1] = ty*a + ny*b; n[v*3+2] = tz*a + nz*b;
+    if (t.length === nv*4) {
+      const ta = t[v*4+1], tb = t[v*4+2];
+      t[v*4+1] = ty*ta + ny*tb; t[v*4+2] = tz*ta + nz*tb;
+    }
+  }
+  return g;
+}
+
+function groundPlane(size, seg) {
+  seg = Math.max(1, seg || 1);
+  const g = newGeo("ground");
+  const grid = [];
+  for (let i = 0; i <= seg; i++) {
+    const x = -size*0.5 + size*(i/seg), row = [];
+    for (let j = 0; j <= seg; j++) {
+      const z = -size*0.5 + size*(j/seg);
+      row.push(gv(g, x, 0, z, 0, 1, 0, x, z, 9, 9, 1));
+    }
+    grid.push(row);
+  }
+  for (let i = 0; i < seg; i++) for (let j = 0; j < seg; j++)
+    quadAuto(g, grid[i][j], grid[i][j+1], grid[i+1][j+1], grid[i+1][j]);
+  return computeTangents(g);
+}
+
+NS.math = { clamp, lerp, smoothstep, DEG, m4id, m4mul, m4persp, m4ortho, m4look, m4trs, m4inv, m3normal };
+NS.noise = { h3, vnoise, fbm };
+NS.geo = {
+  newGeo, gv, quad, quadAuto, triAuto, triCount, transformGeo, mergeGeo, flipGeo,
+  recomputeNormals, computeTangents, finishGeo, roundedBox, cylinder, tube,
+  buildPath, arcPts, applyPath, groundPlane
+};
+
+})(window.IFAK);
+</script>
+<script>
+"use strict";
+/* ============================================================
+   IFAK POUCH VIEWER — part 2: procedural PBR texture bakery
+   albedo (sRGB) + normal + MRA (R=roughness, G=AO, B=metallic)
+   ============================================================ */
+(function(NS){
+const M=NS.math, clamp=M.clamp, lerp=M.lerp, smoothstep=M.smoothstep;
+const h3=NS.noise.h3;
+
+/* ---- tileable 2D value-noise helpers ---- */
+function pn2(x,y,per,seed){
+  const xi=Math.floor(x), yi=Math.floor(y), xf=x-xi, yf=y-yi;
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+  const w=(a,b)=>h3(((a%per)+per)%per,((b%per)+per)%per,seed);
+  const c00=w(xi,yi),c10=w(xi+1,yi),c01=w(xi,yi+1),c11=w(xi+1,yi+1);
+  return lerp(lerp(c00,c10,u),lerp(c01,c11,u),v);
+}
+function pfbm(x,y,per,oct,seed){
+  let a=0.5,s=0,n=0,p=per,fx=x,fy=y;
+  for(let i=0;i<oct;i++){ s+=a*pn2(fx,fy,p,seed+i*37); n+=a; fx*=2;fy*=2;p*=2;a*=0.5; }
+  return s/n;
+}
+// low-res tileable field, bilinearly upsampled per pixel
+function field(n,per,oct,seed){
+  const d=new Float32Array(n*n);
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) d[y*n+x]=pfbm(x/n*per,y/n*per,per,oct,seed);
+  return {n:n,d:d};
+}
+function fsamp(F,u,v){
+  const n=F.n; const x=u*n, y=v*n;
+  let x0=Math.floor(x), y0=Math.floor(y);
+  const fx=x-x0, fy=y-y0;
+  x0=((x0%n)+n)%n; y0=((y0%n)+n)%n;
+  const x1=(x0+1)%n, y1=(y0+1)%n;
+  const a=F.d[y0*n+x0],b=F.d[y0*n+x1],c=F.d[y1*n+x0],e=F.d[y1*n+x1];
+  return (a*(1-fx)+b*fx)*(1-fy)+(c*(1-fx)+e*fx)*fy;
+}
+function rnd(x,y,s){ return h3(x*1013904223+s,y*1664525+s*7,s*9781); }
+
+function normalFromHeight(h,S,strength){
+  const out=new Uint8Array(S*S*4);
+  for(let y=0;y<S;y++){
+    const ym=((y-1)+S)%S, yp=(y+1)%S;
+    for(let x=0;x<S;x++){
+      const xm=((x-1)+S)%S, xp=(x+1)%S;
+      const dx=(h[y*S+xp]-h[y*S+xm])*strength;
+      const dy=(h[yp*S+x]-h[ym*S+x])*strength;
+      let nx=-dx, ny=-dy, nz=1;
+      const L=Math.hypot(nx,ny,nz)||1;
+      const i=(y*S+x)*4;
+      out[i]=(nx/L*0.5+0.5)*255; out[i+1]=(ny/L*0.5+0.5)*255; out[i+2]=(nz/L*0.5+0.5)*255; out[i+3]=255;
+    }
+  }
+  return out;
+}
+function bake(S,strength,fn){
+  const N=S*S;
+  const alb=new Uint8Array(N*4), mra=new Uint8Array(N*4), hgt=new Float32Array(N);
+  const o={r:0.5,g:0.5,b:0.5,rough:0.8,metal:0,ao:1,h:0};
+  for(let y=0;y<S;y++){
+    for(let x=0;x<S;x++){
+      o.r=0.5;o.g=0.5;o.b=0.5;o.rough=0.8;o.metal=0;o.ao=1;o.h=0;
+      fn(x,y,o);
+      const i=(y*S+x)*4;
+      alb[i]=clamp(o.r,0,1)*255; alb[i+1]=clamp(o.g,0,1)*255; alb[i+2]=clamp(o.b,0,1)*255; alb[i+3]=255;
+      mra[i]=clamp(o.rough,0,1)*255; mra[i+1]=clamp(o.ao,0,1)*255; mra[i+2]=clamp(o.metal,0,1)*255; mra[i+3]=255;
+      hgt[y*S+x]=o.h;
+    }
+  }
+  return {S:S,alb:alb,mra:mra,nrm:normalFromHeight(hgt,S,strength)};
+}
+
+/* ---- woven fabric core ---- */
+function weaveAt(x,y,px,o){ // px = pixels per thread
+  const tu=x/px, tv=y/px;
+  const iu=Math.floor(tu), iv=Math.floor(tv);
+  const fu=tu-iu, fv=tv-iv;
+  const over=((iu+iv)&1)===0;
+  const jitter=h3(iu,iv,17);
+  let hh, shade;
+  if(over){ hh=Math.sin(Math.PI*fv); shade=0.72+0.42*hh; }
+  else    { hh=Math.sin(Math.PI*fu)*0.72; shade=0.60+0.36*hh; }
+  hh*=0.86+0.28*jitter;
+  o.h=hh; o.shade=shade*(0.93+0.14*h3(iu,iv,29));
+  o.gap=1.0-Math.max(Math.sin(Math.PI*fu),Math.sin(Math.PI*fv));
+  return o;
+}
+
+/* ============================ materials ============================ */
+const W={h:0,shade:1,gap:0};
+
+function matCordura(S,mpp){
+  const px=Math.max(3,Math.round(0.00075/mpp));
+  const wrink=field(160,6,4,3), dust=field(128,5,4,11), bleach=field(64,3,3,23), fuzzF=field(96,9,3,31);
+  return bake(S,2.6,function(x,y,o){
+    weaveAt(x,y,px,W);
+    const u=x/S, v=y/S;
+    const wr=fsamp(wrink,u,v), du=fsamp(dust,u,v), bl=fsamp(bleach,u,v), fz=fsamp(fuzzF,u,v);
+    const grain=rnd(x,y,5);
+    // base coyote brown, sun-bleached in patches
+    let r=0.475, g=0.383, b=0.262;
+    const bleachAmt=smoothstep(0.42,0.85,bl)*0.30;
+    r=lerp(r,0.575,bleachAmt); g=lerp(g,0.492,bleachAmt); b=lerp(b,0.372,bleachAmt);
+    let sh=W.shade*(0.95+0.09*grain);
+    sh*=lerp(0.90,1.06,wr);
+    r*=sh; g*=sh; b*=sh;
+    // dust ground into the weave (settles in the gaps)
+    const dustAmt=clamp((du*0.75+0.25)*(0.35+0.75*W.gap),0,1)*0.42;
+    r=lerp(r,0.335,dustAmt); g=lerp(g,0.300,dustAmt); b=lerp(b,0.250,dustAmt);
+    // loose fuzz fibres
+    const fib=(grain>0.9945)?1:0;
+    if(fib){ r=lerp(r,0.66,0.7); g=lerp(g,0.58,0.7); b=lerp(b,0.46,0.7); }
+    o.r=r;o.g=g;o.b=b;
+    o.rough=clamp(0.885-0.055*W.h+0.05*(fz-0.5)+0.05*dustAmt-(fib?0.15:0),0.55,1);
+    o.ao=clamp(0.60+0.42*W.h-0.22*W.gap+0.10*(wr-0.5),0,1);
+    o.h=W.h*0.55+(wr-0.5)*1.7+(fz-0.5)*0.35+grain*0.06;
+  });
+}
+function matWebbing(S,mpp){
+  const px=Math.max(3,Math.round(0.0009/mpp));
+  const wear=field(96,5,4,41), rib=field(64,4,2,53);
+  return bake(S,2.1,function(x,y,o){
+    weaveAt(x,y,px,W);
+    const u=x/S,v=y/S, we=fsamp(wear,u,v), rb=fsamp(rib,u,v), grain=rnd(x,y,9);
+    let r=0.352,g=0.288,b=0.198;
+    const worn=smoothstep(0.55,0.95,we);
+    r=lerp(r,0.462,worn*0.5); g=lerp(g,0.392,worn*0.5); b=lerp(b,0.292,worn*0.5);
+    const sh=W.shade*(0.94+0.10*grain)*lerp(0.94,1.05,rb);
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(0.80-0.07*W.h-0.10*worn+0.04*(grain-0.5),0.45,1);
+    o.ao=clamp(0.66+0.36*W.h-0.18*W.gap,0,1);
+    o.h=W.h*0.75+(rb-0.5)*0.5+grain*0.05;
+  });
+}
+function matVelcro(S,mpp){
+  const mat=field(72,6,4,61);
+  return bake(S,3.4,function(x,y,o){
+    const u=x/S,v=y/S, mt=fsamp(mat,u,v);
+    const n1=rnd(x,y,3), n2=rnd(x>>1,y>>1,13), n3=rnd(x>>2,y>>2,21);
+    const fuzz=n1*0.55+n2*0.30+n3*0.15;
+    let r=0.212,g=0.190,b=0.155;
+    const matted=smoothstep(0.45,0.85,mt);
+    r=lerp(r,0.30,matted*0.5);g=lerp(g,0.276,matted*0.5);b=lerp(b,0.235,matted*0.5);
+    const lint=(n1>0.9975)?1:0; // pale lint caught in the loops
+    if(lint){ r=0.80;g=0.78;b=0.73; }
+    const sh=0.72+0.55*fuzz;
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(0.955-0.05*fuzz-(lint?0.1:0),0.6,1);
+    o.ao=clamp(0.45+0.55*fuzz,0,1);
+    o.h=fuzz*0.9+(mt-0.5)*0.5;
+  });
+}
+function matPatch(S){ // non-tiling: one embroidered cross patch
+  const fade=field(48,3,3,71);
+  return bake(S,2.8,function(x,y,o){
+    const u=x/S, v=y/S;
+    const fd=fsamp(fade,u,v);
+    const du=Math.abs(u-0.5), dv=Math.abs(v-0.5);
+    const inBorder=Math.max(du,dv)>0.455;
+    const arm=0.145, len=0.385;
+    const inCross=((du<arm&&dv<len)||(dv<arm&&du<len));
+    // satin stitch: threads run across each element
+    const dir=(dv<arm&&du>=arm)?1:0; // horizontal arm -> vertical threads
+    const t=dir? u*S : v*S;
+    const pitch=Math.max(3,S/150);
+    const ph=(t/pitch)%1;
+    const stitch=Math.sin(Math.PI*ph);
+    const across=dir? v*S : u*S;
+    const wob=Math.sin(across*0.25)*0.06;
+    let r,g,b,rough;
+    if(inCross){
+      const faded=smoothstep(0.35,0.9,fd)*0.42+ (1.0-smoothstep(0.15,0.6,v))*0.14;
+      r=lerp(0.545,0.492,faded); g=lerp(0.082,0.238,faded); b=lerp(0.070,0.205,faded);
+      rough=0.72;
+    } else if(inBorder){
+      r=0.315;g=0.268;b=0.196; rough=0.80;
+    } else {
+      const faded=smoothstep(0.4,0.95,fd)*0.25;
+      r=lerp(0.238,0.286,faded); g=lerp(0.212,0.252,faded); b=lerp(0.165,0.196,faded);
+      rough=0.82;
+    }
+    const sh=0.80+0.34*stitch+wob;
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(rough-0.10*stitch,0.35,1);
+    o.ao=clamp(0.62+0.40*stitch-(inBorder?0.08:0),0,1);
+    o.h=stitch*0.85+(inCross?0.35:0)+(inBorder?0.5:0)+(fd-0.5)*0.3;
+  });
+}
+function matFoil(S,mpp){
+  const c1=field(96,7,4,83), c2=field(160,13,3,97);
+  return bake(S,3.8,function(x,y,o){
+    const u=x/S,v=y/S;
+    const a=fsamp(c1,u,v), b2=fsamp(c2,u,v);
+    const ridge=1-Math.abs(2*a-1), ridge2=1-Math.abs(2*b2-1);
+    const crease=Math.pow(ridge,3.0)*0.75+Math.pow(ridge2,4.0)*0.45;
+    let r=0.760,g=0.775,b=0.795, metal=1, rough=0.20;
+    // abstract printed panel (no text, no logos)
+    if(v>0.585&&v<0.905){
+      const band=smoothstep(0.585,0.60,v)*smoothstep(0.905,0.885,v);
+      r=lerp(r,0.086,band); g=lerp(g,0.168,band); b=lerp(b,0.290,band);
+      metal=lerp(metal,0.0,band); rough=lerp(rough,0.52,band);
+      if(v>0.70&&v<0.755){ r=0.62;g=0.11;b=0.10; }
+      if(u>0.14&&u<0.30&&v>0.63&&v<0.86){ r=0.80;g=0.81;b=0.80; }
+    }
+    const sh=0.86+0.30*crease;
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(rough+0.16*crease+0.03*rnd(x,y,7),0.05,1);
+    o.ao=clamp(0.82+0.20*crease,0,1);
+    o.metal=metal;
+    o.h=(a-0.5)*1.8+crease*0.9;
+  });
+}
+function matPaper(S,mpp){
+  const grime=field(96,5,4,101);
+  return bake(S,1.9,function(x,y,o){
+    const u=x/S,v=y/S, gr=fsamp(grime,u,v);
+    const fib=rnd(x, (y*0.35)|0, 15), fib2=rnd((x*0.4)|0, y, 19);
+    const f=fib*0.6+fib2*0.4;
+    let r=0.855,g=0.838,b=0.792;
+    const dirt=smoothstep(0.5,0.95,gr)*0.22;
+    r=lerp(r,0.61,dirt);g=lerp(g,0.575,dirt);b=lerp(b,0.505,dirt);
+    const sh=0.90+0.16*f;
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(0.925-0.05*f+0.03*dirt,0.6,1);
+    o.ao=clamp(0.80+0.22*f,0,1);
+    o.h=f*0.5+(gr-0.5)*0.9;
+  });
+}
+function matPlastic(S,mpp){
+  const scr=field(128,9,3,113);
+  return bake(S,1.6,function(x,y,o){
+    const u=x/S,v=y/S, s=fsamp(scr,u,v);
+    const line=rnd((x*0.14+y*0.9)|0, (y*0.05)|0, 23);
+    const scuff=(line>0.972?1:0)*smoothstep(0.35,0.75,s);
+    let r=0.108,g=0.110,b=0.118;
+    if(scuff){ r=0.30;g=0.30;b=0.31; }
+    o.r=r;o.g=g;o.b=b;
+    o.rough=clamp(0.265+0.34*scuff+0.05*(s-0.5),0.08,1);
+    o.ao=1-0.06*scuff;
+    o.h=(s-0.5)*0.25+scuff*0.45;
+  });
+}
+function matRubber(S,mpp){
+  const wr=field(96,6,4,127);
+  return bake(S,1.5,function(x,y,o){
+    const u=x/S,v=y/S, w=fsamp(wr,u,v), g1=rnd(x,y,29);
+    let r=0.152,g=0.288,b=0.492;
+    const powder=smoothstep(0.6,0.95,w)*0.35;
+    r=lerp(r,0.42,powder);g=lerp(g,0.52,powder);b=lerp(b,0.66,powder);
+    const sh=0.92+0.14*g1;
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(0.42+0.22*powder+0.05*(g1-0.5),0.15,1);
+    o.ao=clamp(0.88+0.14*w,0,1);
+    o.h=(w-0.5)*0.6+g1*0.12;
+  });
+}
+function matGauze(S,mpp){
+  const px=Math.max(4,Math.round(0.0016/mpp));
+  const soil=field(64,4,3,139);
+  return bake(S,2.2,function(x,y,o){
+    weaveAt(x,y,px,W);
+    const u=x/S,v=y/S, so=fsamp(soil,u,v), g1=rnd(x,y,31);
+    let r=0.862,g=0.855,b=0.822;
+    const dirty=smoothstep(0.62,0.98,so)*0.18;
+    r=lerp(r,0.66,dirty);g=lerp(g,0.63,dirty);b=lerp(b,0.57,dirty);
+    const sh=(0.70+0.42*W.shade)*(0.95+0.10*g1);
+    o.r=r*sh;o.g=g*sh;o.b=b*sh;
+    o.rough=clamp(0.955-0.04*W.h,0.7,1);
+    o.ao=clamp(0.48+0.52*W.h-0.30*W.gap,0,1);
+    o.h=W.h*0.8+(so-0.5)*0.4+g1*0.1;
+  });
+}
+function matElastic(S,mpp){
+  return bake(S,2.0,function(x,y,o){
+    const rib=Math.sin(x/Math.max(2,S/64)*Math.PI*2)*0.5+0.5;
+    const g1=rnd(x,y,37);
+    const sh=0.78+0.30*rib+0.10*g1;
+    o.r=0.070*sh+0.02;o.g=0.070*sh+0.02;o.b=0.078*sh+0.02;
+    o.rough=clamp(0.74-0.10*rib,0.3,1);
+    o.ao=clamp(0.72+0.30*rib,0,1);
+    o.h=rib*0.7+g1*0.15;
+  });
+}
+function matThread(S,mpp){
+  return bake(S,2.2,function(x,y,o){
+    const t=(y/Math.max(2,S/40))%1;
+    const strand=Math.sin(Math.PI*t);
+    const g1=rnd(x,y,41);
+    const sh=0.72+0.46*strand+0.08*g1;
+    o.r=0.545*sh;o.g=0.470*sh;o.b=0.352*sh;
+    o.rough=clamp(0.66-0.12*strand,0.25,1);
+    o.ao=clamp(0.60+0.44*strand,0,1);
+    o.h=strand*0.8;
+  });
+}
+function matStudio(S){
+  return bake(S,1.0,function(x,y,o){
+    const g1=rnd(x,y,43);
+    o.r=0.126+0.008*g1;o.g=0.128+0.008*g1;o.b=0.134+0.008*g1;
+    o.rough=0.40+0.03*g1; o.ao=1; o.h=g1*0.05;
+  });
+}
+
+/* ---- job list (executed one per frame so the loader can animate) ---- */
+NS.tex={
+  jobs:function(low){
+    const B=low?0.5:1;
+    const s=n=>Math.max(64,Math.round(n*B));
+    return [
+      {name:"cordura", label:"500D Cordura · 4K",     run:()=>matCordura(s(2048),0.26/s(2048))},
+      {name:"webbing", label:"Стропа MOLLE",           run:()=>matWebbing(s(1024),0.13/s(1024))},
+      {name:"velcro",  label:"Велкро, петля",          run:()=>matVelcro(s(1024),0.13/s(1024))},
+      {name:"patch",   label:"Нашивка · вышивка",     run:()=>matPatch(s(1024))},
+      {name:"foil",    label:"Фольга · chest seal",     run:()=>matFoil(s(1024),0.12/s(1024))},
+      {name:"paper",   label:"Стерильная бумага",     run:()=>matPaper(s(1024),0.12/s(1024))},
+      {name:"gauze",   label:"Марлевый бинт",         run:()=>matGauze(s(1024),0.10/s(1024))},
+      {name:"plastic", label:"Пластик · windlass",     run:()=>matPlastic(s(512),0.06/s(512))},
+      {name:"rubber",  label:"Нитриловая перчатка",   run:()=>matRubber(s(512),0.08/s(512))},
+      {name:"elastic", label:"Резинка фиксации",     run:()=>matElastic(s(512),0.05/s(512))},
+      {name:"thread",  label:"Нить · bar-tack",         run:()=>matThread(s(256),0.02/s(256))},
+      {name:"studio",  label:"Студийный фон",         run:()=>matStudio(s(256))}
+    ];
+  }
+};
+})(window.IFAK);
+</script>
+<script>
+"use strict";
+/* ============================================================
+   IFAK POUCH VIEWER — part 3: GLSL (PBR, shadows, bloom, grade)
+   ============================================================ */
+(function(NS){
+
+const COMMON = `
+float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+float hash13(vec3 p3){ p3=fract(p3*0.1031); p3+=dot(p3,p3.zyx+31.32); return fract((p3.x+p3.y)*p3.z); }
+float vn3(vec3 x){
+  vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+  float a=hash13(i), b=hash13(i+vec3(1.0,0.0,0.0)), c=hash13(i+vec3(0.0,1.0,0.0)), d=hash13(i+vec3(1.0,1.0,0.0));
+  float e=hash13(i+vec3(0.0,0.0,1.0)), g=hash13(i+vec3(1.0,0.0,1.0)), h=hash13(i+vec3(0.0,1.0,1.0)), k=hash13(i+vec3(1.0,1.0,1.0));
+  return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y), mix(mix(e,g,f.x),mix(h,k,f.x),f.y), f.z);
+}
+float fbm3(vec3 p){ float s=0.0,a=0.5,n=0.0; for(int i=0;i<3;i++){ s+=a*vn3(p); n+=a; p*=2.03; a*=0.5; } return s/n; }
+vec3 studioBg(vec2 uv){
+  float r=length((uv-vec2(0.46,0.54))*vec2(1.35,1.0));
+  vec3 c=mix(vec3(0.062,0.063,0.068), vec3(0.0075,0.0075,0.009), smoothstep(0.10,0.92,r));
+  c+=vec3(0.030,0.021,0.013)*smoothstep(0.85,0.10,length((uv-vec2(0.88,0.62))*vec2(1.0,1.3)));
+  return c;
+}
+`;
+
+const ENV = `
+vec3 envSample(vec3 d, float rough){
+  float up=clamp(d.y*0.5+0.5,0.0,1.0);
+  vec3 c=mix(vec3(0.0125,0.0132,0.0155), vec3(0.175,0.182,0.198), pow(up,1.45));
+  float r=clamp(rough,0.0,1.0);
+  vec3 keyD=normalize(vec3(-0.62,0.66,0.42));
+  c+=vec3(1.0,0.985,0.955)*pow(max(dot(d,keyD),0.0), mix(220.0,2.0,r))*mix(2.6,0.42,r);
+  vec3 rimD=normalize(vec3(0.78,0.26,-0.58));
+  c+=vec3(1.0,0.64,0.34)*pow(max(dot(d,rimD),0.0), mix(150.0,3.0,r))*mix(1.5,0.26,r);
+  c+=vec3(0.055,0.055,0.062)*smoothstep(0.0,-0.7,d.y);
+  return c;
+}
+vec2 envBRDFApprox(float ndv, float rough){
+  const vec4 c0=vec4(-1.0,-0.0275,-0.572,0.022);
+  const vec4 c1=vec4(1.0,0.0425,1.04,-0.04);
+  vec4 r=rough*c0+c1;
+  float a004=min(r.x*r.x, exp2(-9.28*ndv))*r.x+r.y;
+  return vec2(-1.04,1.04)*a004+r.zw;
+}
+float D_GGX(float ndh,float a){ float a2=a*a; float d=ndh*ndh*(a2-1.0)+1.0; return a2/max(3.14159265*d*d,1e-7); }
+float V_Smith(float ndv,float ndl,float a){
+  float a2=a*a;
+  float lv=ndl*sqrt(ndv*ndv*(1.0-a2)+a2);
+  float ll=ndv*sqrt(ndl*ndl*(1.0-a2)+a2);
+  return 0.5/max(lv+ll,1e-5);
+}
+vec3 F_Schlick(vec3 f0,float u){ return f0+(1.0-f0)*pow(clamp(1.0-u,0.0,1.0),5.0); }
+float D_Charlie(float ndh,float r){
+  float inv=1.0/max(r*r,0.05);
+  return (2.0+inv)*pow(max(1.0-ndh*ndh,0.0), inv*0.5)*0.15915494;
+}
+`;
+
+NS.glsl={
+
+meshVert:`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in vec2 aUv;
+layout(location=3) in vec4 aTan;
+layout(location=4) in vec2 aEdg;
+layout(location=5) in float aAo;
+uniform mat4 uProj,uView,uModel,uLightVP;
+uniform mat3 uNrmMat;
+out vec3 vWPos; out vec3 vNrm; out vec2 vUv; out vec4 vTan; out vec2 vEdg; out float vAo; out vec4 vLPos;
+void main(){
+  vec4 wp=uModel*vec4(aPos,1.0);
+  vWPos=wp.xyz;
+  vNrm=normalize(uNrmMat*aNrm);
+  vTan=vec4(normalize(uNrmMat*aTan.xyz), aTan.w);
+  vUv=aUv; vEdg=aEdg; vAo=aAo;
+  vLPos=uLightVP*wp;
+  gl_Position=uProj*uView*wp;
+}`,
+
+meshFrag:`#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec3 vWPos; in vec3 vNrm; in vec2 vUv; in vec4 vTan; in vec2 vEdg; in float vAo; in vec4 vLPos;
+out vec4 oColor;
+uniform sampler2D uAlb,uNrmTex,uMra,uShadow;
+uniform vec3 uCam,uTint,uSheenTint,uStitchCol;
+uniform vec2 uUvScale,uUvOffset,uRes,uShadowSize;
+uniform float uRoughMul,uRoughAdd,uMetalMul,uNrmScale,uSheen,uGrime,uSSS,uFuzz,uGroundFade,uShadowSoft,uAoAmt;
+uniform vec4 uStitch;
+uniform int uViewMode;
+uniform vec3 uKeyDir,uKeyCol,uRimDir,uRimCol,uFillDir,uFillCol;
+${COMMON}
+${ENV}
+const vec2 PD[12]=vec2[12](
+  vec2(-0.326,-0.406),vec2(-0.840,-0.074),vec2(-0.696,0.457),vec2(-0.203,0.621),
+  vec2(0.962,-0.195),vec2(0.473,-0.480),vec2(0.519,0.767),vec2(0.185,-0.893),
+  vec2(0.507,0.064),vec2(0.896,0.412),vec2(-0.322,-0.933),vec2(-0.792,-0.598));
+float shadowAt(float ndl){
+  vec3 p=vLPos.xyz/vLPos.w; p=p*0.5+0.5;
+  if(p.z>=1.0||p.x<0.002||p.x>0.998||p.y<0.002||p.y>0.998) return 1.0;
+  float bias=mix(0.0030,0.00055,clamp(ndl,0.0,1.0));
+  float rad=uShadowSoft/uShadowSize.x;
+  float ang=hash12(gl_FragCoord.xy)*6.2831853;
+  float ca=cos(ang), sa=sin(ang), sum=0.0;
+  for(int i=0;i<12;i++){
+    vec2 o=vec2(PD[i].x*ca-PD[i].y*sa, PD[i].x*sa+PD[i].y*ca)*rad;
+    float d=texture(uShadow,p.xy+o).r;
+    sum+=(p.z-bias>d)?0.0:1.0;
+  }
+  return sum/12.0;
+}
+void applyGrime(inout vec3 alb, inout float rough, inout float ao){
+  if(uGrime<=0.002) return;
+  vec3 wp=vWPos;
+  float dust=fbm3(wp*46.0);
+  float low=smoothstep(0.11,0.0,wp.y);
+  float dusty=uGrime*(0.20+0.30*dust)*mix(0.35,1.0,low);
+  alb=mix(alb, vec3(0.058,0.049,0.038), dusty);
+  rough=mix(rough,0.94,dusty*0.6);
+  float mudN=fbm3(wp*78.0+7.3);
+  float mud=smoothstep(0.028,0.0,wp.y)*smoothstep(0.42,0.66,mudN)*uGrime;
+  alb=mix(alb, vec3(0.030,0.0225,0.0145)*(0.75+0.6*dust), mud*0.92);
+  rough=mix(rough,0.97,mud*0.85);
+  ao=mix(ao,ao*0.86,mud);
+  vec3 bc=vec3(0.079,0.026,0.030);
+  float bd=length((wp-bc)*vec3(1.0,1.15,1.0));
+  float blood=smoothstep(0.052,0.010,bd)*smoothstep(0.40,0.60,fbm3(wp*96.0+3.1))*uGrime;
+  alb=mix(alb, vec3(0.0295,0.0058,0.0042), clamp(blood,0.0,1.0)*0.95);
+  rough=mix(rough,0.66,blood*0.8);
+}
+void applyStitch(inout vec3 alb, inout float rough, inout vec3 nt){
+  if(uStitch.x<0.5) return;
+  float du=vEdg.x, dv=vEdg.y;
+  bool useU=du<dv;
+  float d=min(du,dv);
+  float along=useU?vUv.y:vUv.x;
+  float row1=uStitch.y, row2=uStitch.y+0.0036, w=uStitch.w;
+  float t1=abs(d-row1)/(w*0.5), t2=abs(d-row2)/(w*0.5);
+  float p1=1.0-smoothstep(0.45,1.0,t1), p2=1.0-smoothstep(0.45,1.0,t2);
+  float prof=max(p1,p2);
+  if(prof<=0.001) return;
+  float ph=fract(along/uStitch.z);
+  float dash=smoothstep(0.05,0.17,ph)*(1.0-smoothstep(0.78,0.93,ph));
+  float m=prof*dash;
+  alb=mix(alb, pow(uStitchCol,vec3(2.2)), m*0.92);
+  rough=mix(rough,0.60,m*0.75);
+  float grad=((d-row1)/max(w*0.5,1e-5))*p1+((d-row2)/max(w*0.5,1e-5))*p2;
+  float pucker=prof*sin(along/uStitch.z*6.2831853)*0.06;
+  nt.xy+= useU? vec2(-grad*m*1.7, pucker) : vec2(pucker, -grad*m*1.7);
+}
+vec3 shadeLight(vec3 L, vec3 col, vec3 n, vec3 V, vec3 diffCol, vec3 f0, float rough, float sh){
+  float ndlRaw=dot(n,L);
+  float ndl=max(ndlRaw,0.0);
+  float wrap=max((ndlRaw+uSSS)/(1.0+uSSS),0.0);
+  vec3 H=normalize(L+V);
+  float ndv=max(dot(n,V),1e-4);
+  float ndh=max(dot(n,H),0.0);
+  float vdh=max(dot(V,H),0.0);
+  float a=max(rough*rough,0.0016);
+  vec3 F=F_Schlick(f0,vdh);
+  vec3 spec=F*D_GGX(ndh,a)*V_Smith(ndv,max(ndl,1e-4),a);
+  vec3 res=(diffCol*wrap*0.3183099+spec*ndl)*col*sh;
+  if(uSheen>0.001) res+=uSheen*pow(uSheenTint,vec3(2.2))*D_Charlie(ndh,max(rough,0.25))*ndl*col*sh;
+  return res;
+}
+void main(){
+  vec2 uv=vUv*uUvScale+uUvOffset;
+  vec3 alb=pow(texture(uAlb,uv).rgb,vec3(2.2))*pow(uTint,vec3(2.2));
+  vec3 mra=texture(uMra,uv).rgb;
+  float rough=clamp(mra.r*uRoughMul+uRoughAdd,0.025,1.0);
+  float ao=mix(1.0,mra.g,uAoAmt)*clamp(vAo,0.0,1.0);
+  float metal=clamp(mra.b*uMetalMul,0.0,1.0);
+  vec3 nt=texture(uNrmTex,uv).rgb*2.0-1.0;
+  nt.xy*=uNrmScale;
+  applyStitch(alb,rough,nt);
+  applyGrime(alb,rough,ao);
+  float worn=(1.0-smoothstep(0.0,0.0085,min(vEdg.x,vEdg.y)))*uFuzz;
+  alb=mix(alb,alb*1.10+vec3(0.005),worn*0.5);
+  rough=mix(rough,min(rough+0.06,1.0),worn);
+  vec3 N=normalize(vNrm);
+  if(!gl_FrontFacing) N=-N;
+  vec3 T=normalize(vTan.xyz-N*dot(N,vTan.xyz));
+  vec3 B=cross(N,T)*vTan.w;
+  vec3 n=normalize(mat3(T,B,N)*normalize(nt));
+  vec3 V=normalize(uCam-vWPos);
+  if(dot(n,V)<0.0) n=normalize(n-V*dot(n,V)*1.02);
+  if(uViewMode==1){ oColor=vec4(pow(alb,vec3(1.0/2.2)),1.0); return; }
+  if(uViewMode==2){ oColor=vec4(n*0.5+0.5,1.0); return; }
+  if(uViewMode==3){ oColor=vec4(vec3(rough),1.0); return; }
+  if(uViewMode==4){ oColor=vec4(vec3(ao),1.0); return; }
+  if(uViewMode==5){ oColor=vec4(vec3(metal),1.0); return; }
+  vec3 f0=mix(vec3(0.04),alb,metal);
+  vec3 diffCol=alb*(1.0-metal);
+  float ndv=max(dot(n,V),1e-4);
+  vec3 irr=envSample(n,1.0);
+  vec3 col=diffCol*irr*ao;
+  vec3 R=reflect(-V,n);
+  vec2 eb=envBRDFApprox(ndv,rough);
+  col+=envSample(R,rough)*(f0*eb.x+vec3(eb.y))*mix(0.35,1.0,ao);
+  float shKey=shadowAt(dot(n,uKeyDir));
+  col+=shadeLight(uKeyDir,uKeyCol,n,V,diffCol,f0,rough,shKey);
+  col+=shadeLight(uRimDir,uRimCol,n,V,diffCol,f0,rough,mix(0.55,1.0,ao));
+  col+=shadeLight(uFillDir,uFillCol,n,V,diffCol,f0,rough,ao);
+  if(worn>0.001){
+    float fres=pow(1.0-ndv,3.0);
+    col+=pow(uSheenTint,vec3(2.2))*fres*worn*(irr*2.2+uKeyCol*shKey*0.35);
+  }
+  if(uGroundFade>0.5){
+    float rr=length(vWPos.xz)/0.62;
+    col=mix(col, studioBg(gl_FragCoord.xy/uRes), smoothstep(0.30,1.0,rr));
+  }
+  oColor=vec4(col,1.0);
+}`,
+
+depthVert:`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+uniform mat4 uLightVP,uModel;
+void main(){ gl_Position=uLightVP*uModel*vec4(aPos,1.0); }`,
+
+depthFrag:`#version 300 es
+precision highp float;
+void main(){}`,
+
+wireVert:`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+uniform mat4 uProj,uView,uModel;
+void main(){
+  vec4 p=uProj*uView*uModel*vec4(aPos,1.0);
+  p.z-=0.0016*p.w;
+  gl_Position=p;
+}`,
+
+wireFrag:`#version 300 es
+precision highp float;
+out vec4 oColor;
+uniform vec4 uColor;
+void main(){ oColor=uColor; }`,
+
+quadVert:`#version 300 es
+precision highp float;
+out vec2 vUv;
+void main(){
+  vec2 p=vec2((gl_VertexID<<1)&2, gl_VertexID&2);
+  vUv=p;
+  gl_Position=vec4(p*2.0-1.0,0.0,1.0);
+}`,
+
+bgFrag:`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 oColor;
+${COMMON}
+void main(){ oColor=vec4(studioBg(vUv),1.0); }`,
+
+brightFrag:`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 oColor;
+uniform sampler2D uScene;
+uniform float uThresh;
+void main(){
+  vec3 c=texture(uScene,vUv).rgb;
+  float l=dot(c,vec3(0.2126,0.7152,0.0722));
+  c*=smoothstep(uThresh,uThresh+0.85,l);
+  oColor=vec4(c,1.0);
+}`,
+
+blurFrag:`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 oColor;
+uniform sampler2D uScene;
+uniform vec2 uDir;
+void main(){
+  vec3 c=texture(uScene,vUv).rgb*0.2270270270;
+  c+=texture(uScene,vUv+uDir*1.3846153846).rgb*0.3162162162;
+  c+=texture(uScene,vUv-uDir*1.3846153846).rgb*0.3162162162;
+  c+=texture(uScene,vUv+uDir*3.2307692308).rgb*0.0702702703;
+  c+=texture(uScene,vUv-uDir*3.2307692308).rgb*0.0702702703;
+  oColor=vec4(c,1.0);
+}`,
+
+compositeFrag:`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 oColor;
+uniform sampler2D uScene,uBloom;
+uniform float uExposure,uBloomAmt,uTime;
+uniform vec2 uRes;
+uniform int uRaw;
+${COMMON}
+vec3 aces(vec3 x){
+  return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);
+}
+void main(){
+  vec3 c=texture(uScene,vUv).rgb;
+  if(uRaw==0){
+    c+=texture(uBloom,vUv).rgb*uBloomAmt;
+    c*=uExposure;
+    c=aces(c*1.05);
+    c=pow(c,vec3(1.0/2.2));
+    c=mix(vec3(dot(c,vec3(0.2126,0.7152,0.0722))),c,1.04);
+    float r=length((vUv-0.5)*vec2(1.04,1.0));
+    c*=mix(1.0,0.66,smoothstep(0.42,1.06,r));
+  }else{
+    c=clamp(c,0.0,1.0);
+  }
+  c+=(hash12(vUv*uRes+vec2(uTime))-0.5)*0.011;
+  oColor=vec4(c,1.0);
+}`
+};
+})(window.IFAK);
+</script>
+<script>
+"use strict";
+/* ============================================================
+   IFAK POUCH VIEWER — part 4: scene construction (real-world m)
+   ============================================================ */
+(function(NS){
+const M=NS.math, G=NS.geo, N=NS.noise;
+const lerp=M.lerp, sst=M.smoothstep, clamp=M.clamp;
+
+/* ---------- body reference dimensions ---------- */
+const BW=0.178, BH=0.128, BD=0.078, BR=0.016, CY=0.0665;   // 18 x 13 x 8 cm
+const FRONT=BD/2, BACK=-BD/2, TOP=CY+BH/2;
+
+/* ---------- shared deformers ---------- */
+function fabricWarp(x,y,z,nx,ny,nz,eu,ev){
+  const tight=sst(0,0.030,Math.min(eu,ev));
+  const folds=N.fbm(x*26+1.3,y*26+5.0,z*26,3)-0.5;
+  const fine=N.fbm(x*98,y*98,z*98,2)-0.5;
+  return tight*0.0026+folds*0.0024*tight+fine*0.00055;
+}
+function softWarp(amp,freq){
+  return function(x,y,z){ return (N.fbm(x*freq,y*freq+2.0,z*freq,3)-0.5)*amp; };
+}
+function crumple(amp,freq){
+  return function(x,y,z){
+    const a=N.fbm(x*freq,y*freq+7.0,z*freq,3);
+    const r=1-Math.abs(2*a-1);
+    return (Math.pow(r,2.1)-0.34)*amp;
+  };
+}
+function taper(g,fn){
+  for(let i=0;i<g.pos.length;i+=3){
+    const s=fn(g.pos[i+1]);
+    g.pos[i]*=s; g.pos[i+2]*=s;
+  }
+  G.recomputeNormals(g); G.computeTangents(g); return g;
+}
+function spreadMouth(g,amt){
+  for(let i=0;i<g.pos.length;i+=3){
+    const y=g.pos[i+1], t=sst(-0.01,BH/2,y);
+    g.pos[i+2]+=Math.sign(g.pos[i+2]||1)*t*amt;
+    g.pos[i]*=1+t*0.035;
+  }
+  G.recomputeNormals(g); G.computeTangents(g); return g;
+}
+function T(t,r,s){ return M.m4trs(t,r,s); }
+
+/* ---------- open arc shell (paper wrap, elastic loops) ---------- */
+function shell(r,h,a0,a1,seg,rings,opt){
+  opt=opt||{};
+  const g=G.newGeo(opt.name||"shell");
+  for(let i=0;i<=seg;i++){
+    const t=i/seg, a=lerp(a0,a1,t), ca=Math.cos(a), sa=Math.sin(a);
+    for(let j=0;j<=rings;j++){
+      const v=j/rings, y=-h/2+h*v;
+      const rr=opt.rFn?opt.rFn(t,v):r;
+      const d=opt.warp?opt.warp(ca*rr,y,sa*rr):0;
+      G.gv(g,ca*(rr+d),y,sa*(rr+d),ca,0,sa,a*r,v*h,Math.min(t,1-t)*Math.abs(a1-a0)*r,Math.min(v,1-v)*h,1);
+    }
+  }
+  const idx=(i,j)=>i*(rings+1)+j;
+  for(let i=0;i<seg;i++) for(let j=0;j<rings;j++) G.quad(g,idx(i,j),idx(i,j+1),idx(i+1,j+1),idx(i+1,j),false);
+  return G.finishGeo(g,{smooth:false});
+}
+
+/* ---------- flat rounded-rect rim ring (open mouth) ---------- */
+function rrPoint(ex,ez,r,a){
+  const cx=Math.cos(a), cz=Math.sin(a);
+  const t=Math.max(Math.abs(cx)/(ex+r),Math.abs(cz)/(ez+r));
+  const px=cx/t, pz=cz/t;
+  const qx=clamp(px,-ex,ex), qz=clamp(pz,-ez,ez);
+  let nx=px-qx, nz=pz-qz;
+  const L=Math.hypot(nx,nz);
+  if(L<1e-9){ return [px,pz,0,0]; }
+  return [qx+nx/L*r, qz+nz/L*r, nx/L, nz/L];
+}
+function rimRing(exO,ezO,rO,exI,ezI,rI,y,seg,warp){
+  const g=G.newGeo("rim");
+  let s=0, prev=null;
+  for(let i=0;i<=seg;i++){
+    const a=i/seg*Math.PI*2;
+    const o=rrPoint(exO,ezO,rO,a), n=rrPoint(exI,ezI,rI,a);
+    if(prev) s+=Math.hypot(o[0]-prev[0],o[1]-prev[1]);
+    prev=[o[0],o[1]];
+    const wd=Math.hypot(o[0]-n[0],o[1]-n[1]);
+    for(let j=0;j<=2;j++){
+      const t=j/2;
+      const x=lerp(o[0],n[0],t), z=lerp(o[1],n[1],t);
+      const dy=warp?warp(x,y,z):0;
+      G.gv(g,x,y+dy,z,0,1,0,s,t*wd,999,Math.min(t,1-t)*wd*2,1);
+    }
+  }
+  const idx=(i,j)=>i*3+j;
+  for(let i=0;i<seg;i++) for(let j=0;j<2;j++) G.quad(g,idx(i,j),idx(i,j+1),idx(i+1,j+1),idx(i+1,j),true);
+  return G.finishGeo(g,{smooth:false});
+}
+
+/* ---------- place a rigid part on a 2D path (own pivot) ---------- */
+function placeOnPath(path,s,xOff,lift,extraRot){
+  const c=path.at(s);
+  const ny=c[2], nz=c[3];
+  const ang=Math.atan2(-ny,nz);
+  return T([xOff||0, c[0]+ny*(lift||0), c[1]+nz*(lift||0)],[ang+(extraRot||0),0,0]);
+}
+
+/* ============================================================
+   PART LISTS
+   ============================================================ */
+function bodyGeo(open){
+  const g=G.roundedBox(BW,BH,BD,BR,open?36:36,{
+    warp:fabricWarp, skip:open?["+y"]:[],
+    ao:function(x,y,z){ return 0.86+0.14*sst(-BH/2,0.02,y); }
+  });
+  taper(g,function(y){ return 1-0.22*y; });
+  if(open) spreadMouth(g,0.0055);
+  G.transformGeo(g,T([0,CY,0]));
+  return g;
+}
+function interiorGeo(){
+  const g=G.roundedBox(BW-0.016,BH-0.012,BD-0.016,0.010,22,{
+    skip:["+y"], warp:softWarp(0.0016,30),
+    ao:function(x,y,z){ return clamp(0.20+0.62*sst(-BH/2,0.045,y),0,1); }
+  });
+  taper(g,function(y){ return 1-0.22*y; });
+  spreadMouth(g,0.0055);
+  G.flipGeo(g);
+  G.transformGeo(g,T([0,CY+0.004,0]));
+  return g;
+}
+
+/* ---- flap paths (hinge on the upper back panel) ---- */
+const flapClosedPath=G.buildPath([
+  [CY+0.036,BACK-0.0055],[CY+0.048,BACK-0.0062],[CY+0.056,BACK-0.0050],
+  [TOP-0.004,-0.0325],[TOP+0.0055,-0.0180],[TOP+0.0072,0.0000],[TOP+0.0055,0.0180],
+  [TOP-0.004,0.0325],[CY+0.052,FRONT+0.0072],[CY+0.036,FRONT+0.0098],
+  [CY+0.016,FRONT+0.0112],[CY-0.002,FRONT+0.0116],[CY-0.014,FRONT+0.0104]
+]);
+const flapOpenPath=G.buildPath([
+  [CY+0.036,BACK-0.0055],[CY+0.048,BACK-0.0075],[CY+0.056,BACK-0.0135],
+  [CY+0.060,BACK-0.0250],[CY+0.056,BACK-0.0370],[CY+0.046,BACK-0.0470],
+  [CY+0.032,BACK-0.0540],[CY+0.016,BACK-0.0575],[CY+0.000,BACK-0.0585],
+  [CY-0.016,BACK-0.0570],[CY-0.030,BACK-0.0530],[CY-0.042,BACK-0.0470]
+]);
+function flapGeo(path){
+  const L=path.length;
+  const g=G.roundedBox(BW-0.008,L,0.0062,0.0028,30,{
+    warp:function(x,y,z,nx,ny,nz,eu,ev){
+      const tight=sst(0,0.020,Math.min(eu,ev));
+      return tight*0.0009+(N.fbm(x*30,y*30+3,z*30,3)-0.5)*0.0016*tight;
+    }
+  });
+  G.applyPath(g,path,L/2,{jitter:function(x,s,z){ return (N.fbm(x*24+2,s*24,0.5,2)-0.5)*0.0016; }});
+  return g;
+}
+function patchGeo(){
+  return G.roundedBox(0.054,0.054,0.0036,0.0065,16,{
+    warp:function(x,y,z,nx,ny,nz,eu,ev){ return sst(0,0.004,Math.min(eu,ev))*0.0006; }
+  });
+}
+
+/* ---- front zippered pocket + YKK zipper ---- */
+function pocketParts(list){
+  const pocket=G.roundedBox(0.150,0.052,0.0155,0.0075,24,{
+    warp:function(x,y,z,nx,ny,nz,eu,ev){
+      const tight=sst(0,0.024,Math.min(eu,ev));
+      return tight*0.0020+(N.fbm(x*30,y*30,z*30,3)-0.5)*0.0018*tight;
+    }
+  });
+  G.transformGeo(pocket,T([0,CY-0.026,FRONT+0.0045]));
+  list.push({geo:pocket,mat:"corduraB",name:"front pocket"});
+
+  const zy=CY-0.026+0.026+0.0005, zz=FRONT+0.0045;
+  const tape=G.roundedBox(0.146,0.0145,0.0024,0.0008,22,{});
+  G.transformGeo(tape,T([0,zy,zz],[Math.PI/2,0,0]));
+  list.push({geo:tape,mat:"webbing",name:"zip tape"});
+
+  const teeth=G.newGeo("teeth");
+  const tooth=G.roundedBox(0.0026,0.0034,0.0022,0.0007,4,{});
+  for(let i=0;i<42;i++){
+    const x=-0.0695+i*0.0034, sg=(i%2)?1:-1;
+    G.mergeGeo(teeth,tooth,T([x,zy+0.0012,zz+sg*0.0009],[0,sg*0.22,sg*0.10]));
+  }
+  G.computeTangents(teeth);
+  list.push({geo:teeth,mat:"zipTeeth",name:"zip teeth"});
+
+  const slider=G.roundedBox(0.0155,0.0075,0.0105,0.0028,10,{});
+  G.transformGeo(slider,T([0.0265,zy+0.0018,zz],[0,0,0.04]));
+  list.push({geo:slider,mat:"zipMetal",name:"zip slider"});
+  const bail=G.tube([[0.0265,zy+0.0055,zz+0.0015],[0.0295,zy+0.0062,zz+0.0055],[0.0300,zy+0.0035,zz+0.0085]],0.0011,8,{});
+  list.push({geo:bail,mat:"zipMetal",name:"zip bail"});
+
+  const cordPts=[];
+  const c0=[0.0300,zy+0.0035,zz+0.0085];
+  for(let i=0;i<=22;i++){
+    const t=i/22, a=t*Math.PI*2;
+    const rx=0.0060, ry=0.0135;
+    cordPts.push([
+      c0[0]+Math.sin(a)*rx*(1-0.25*t),
+      c0[1]-ry*(1-Math.cos(a))*0.85-0.0015,
+      c0[2]+0.0022+Math.sin(a*0.5)*0.0026
+    ]);
+  }
+  list.push({geo:G.tube(cordPts,0.0017,9,{}),mat:"cord",name:"paracord pull"});
+  const knot=G.roundedBox(0.0062,0.0052,0.0062,0.0018,8,{});
+  G.transformGeo(knot,T([c0[0]+0.0005,c0[1]-0.0272,c0[2]+0.0042],[0.3,0.2,0.4]));
+  list.push({geo:knot,mat:"cord",name:"cord knot"});
+}
+
+/* ---- rip-away velcro panel + MOLLE ladder (back) ---- */
+function backParts(list){
+  const panel=G.roundedBox(0.156,0.104,0.0042,0.0060,26,{
+    warp:softWarp(0.0009,40)
+  });
+  for(let i=0;i<panel.pos.length;i+=3){
+    const t=sst(0.040,0.0,Math.hypot(panel.pos[i]+0.077,panel.pos[i+1]+0.050));
+    panel.pos[i+2]-=t*t*0.0135;
+    panel.pos[i]-=t*t*0.0035;
+  }
+  G.recomputeNormals(panel); G.computeTangents(panel);
+  G.transformGeo(panel,T([0,CY,BACK-0.0034]));
+  list.push({geo:panel,mat:"velcro",name:"rip-away panel"});
+
+  const straps=G.newGeo("molle"), tacks=G.newGeo("bartacks");
+  const strap=G.roundedBox(0.148,0.0255,0.0040,0.0013,18,{
+    warp:function(x,y,z,nx,ny,nz,eu,ev){ return sst(0,0.006,Math.min(eu,ev))*0.0007; }
+  });
+  const tack=G.roundedBox(0.0040,0.0250,0.0016,0.0006,4,{});
+  for(let k=-1;k<=1;k++){
+    const y=CY+k*0.0355;
+    G.mergeGeo(straps,strap,T([0,y,BACK-0.0072]));
+    for(let t=-2;t<=2;t++){
+      G.mergeGeo(tacks,tack,T([t*0.0380,y,BACK-0.0086]));
+    }
+  }
+  G.computeTangents(straps); G.computeTangents(tacks);
+  list.push({geo:straps,mat:"webbing",name:"MOLLE straps"});
+  list.push({geo:tacks,mat:"thread",name:"bar tacks"});
+}
+
+/* ---- side grab handle (asset pivot) ---- */
+function handleParts(list){
+  const hp=G.buildPath([
+    [0.0000,-0.0235],[0.0075,-0.0262],[0.0140,-0.0205],[0.0168,-0.0075],
+    [0.0168,0.0075],[0.0140,0.0205],[0.0075,0.0262],[0.0000,0.0235]
+  ]);
+  const L=hp.length;
+  const g=G.roundedBox(0.027,L,0.0048,0.0016,22,{
+    warp:function(x,y,z,nx,ny,nz,eu,ev){ return sst(0,0.006,Math.min(eu,ev))*0.0006; }
+  });
+  G.applyPath(g,hp,L/2,{});
+  G.transformGeo(g,T([0,0,0],[0,0,-Math.PI/2]));
+  G.transformGeo(g,T([BW/2-0.006,CY,0]));
+  list.push({geo:g,mat:"handle",name:"grab handle"});
+
+  const tack=G.roundedBox(0.0044,0.0250,0.0018,0.0007,4,{});
+  const tk=G.newGeo("handleTacks");
+  G.mergeGeo(tk,tack,T([BW/2-0.0035,CY-0.0225,0],[0,Math.PI/2,0]));
+  G.mergeGeo(tk,tack,T([BW/2-0.0035,CY+0.0225,0],[0,Math.PI/2,0]));
+  G.computeTangents(tk);
+  list.push({geo:tk,mat:"thread",name:"handle tacks"});
+}
+
+/* ---- loose frayed threads ---- */
+function frayParts(list){
+  const g=G.newGeo("fray");
+  const seeds=[
+    [[-0.052,CY-BH/2+0.004,FRONT+0.004],[0.02,-0.6,0.9]],
+    [[0.031,CY-BH/2+0.003,FRONT+0.006],[-0.5,-0.2,0.8]],
+    [[-0.084,CY+0.018,FRONT-0.004],[-0.9,0.35,0.3]],
+    [[0.070,CY+0.049,FRONT+0.010],[0.6,0.5,0.6]]
+  ];
+  for(let s=0;s<seeds.length;s++){
+    const p=seeds[s][0], d=seeds[s][1], pts=[];
+    for(let i=0;i<=7;i++){
+      const t=i/7;
+      pts.push([
+        p[0]+d[0]*0.0135*t+(N.vnoise(s*7+t*9,1.3,2.1)-0.5)*0.0055*t,
+        p[1]+d[1]*0.0135*t+(N.vnoise(s*7+t*9,4.7,0.3)-0.5)*0.0045*t-0.0016*t*t,
+        p[2]+d[2]*0.0135*t+(N.vnoise(s*7+t*9,8.1,5.5)-0.5)*0.0055*t
+      ]);
+    }
+    G.mergeGeo(g,G.tube(pts,function(t){return 0.00036*(1-0.45*t);},6,{}));
+  }
+  G.computeTangents(g);
+  list.push({geo:g,mat:"thread",name:"frayed threads"});
+}
+
+/* ============================================================
+   CONTENTS (open state)
+   ============================================================ */
+function contents(list){
+  /* ---- CAT-style tourniquet ---- */
+  const bundle=G.roundedBox(0.070,0.030,0.020,0.0055,18,{warp:softWarp(0.0013,42)});
+  G.transformGeo(bundle,T([-0.0425,CY-0.012,-0.006],[0.06,0.10,0.05]));
+  list.push({geo:bundle,mat:"nylonBlack",name:"TQ strap bundle"});
+
+  const bundle2=G.roundedBox(0.064,0.022,0.014,0.0045,16,{warp:softWarp(0.0012,44)});
+  G.transformGeo(bundle2,T([-0.0405,CY+0.014,0.001],[-0.04,0.16,0.02]));
+  list.push({geo:bundle2,mat:"nylonBlack",name:"TQ strap fold"});
+
+  const rod=G.cylinder(0.0048,0.0048,0.082,20,{rings:4,capRings:2});
+  G.transformGeo(rod,T([-0.0400,CY+0.030,0.006],[0.10,0.14,Math.PI/2]));
+  list.push({geo:rod,mat:"plasticDark",name:"windlass rod"});
+  const rodEnd=G.cylinder(0.0062,0.0062,0.0075,16,{rings:2,capRings:2});
+  G.transformGeo(rodEnd,T([-0.0400+0.0415,CY+0.0325,0.0075],[0.10,0.14,Math.PI/2]));
+  list.push({geo:rodEnd,mat:"plasticDark",name:"windlass end"});
+
+  // strap tail rising out of the mouth, red tip tab on the end
+  const tail=G.buildPath([
+    [CY-0.004,-0.010],[CY+0.014,-0.012],[CY+0.032,-0.010],[CY+0.048,-0.004],
+    [CY+0.060,0.006],[CY+0.068,0.020],[CY+0.070,0.036],[CY+0.066,0.050]
+  ]);
+  const tl=tail.length;
+  const tailG=G.roundedBox(0.038,tl,0.0032,0.0012,26,{});
+  G.applyPath(tailG,tail,tl/2,{jitter:function(x,s,z){ return (N.fbm(x*40,s*30,1.5,2)-0.5)*0.0012; }});
+  G.transformGeo(tailG,T([-0.0430,0,0]));
+  list.push({geo:tailG,mat:"nylonBlack",name:"TQ strap tail"});
+
+  const tab=G.roundedBox(0.030,0.017,0.0032,0.0011,10,{});
+  G.transformGeo(tab,placeOnPath(tail,tl-0.004,-0.0430,0.0016,0));
+  list.push({geo:tab,mat:"redTab",name:"TQ red tip"});
+
+  /* ---- rolled compressed gauze + torn wrapper ---- */
+  const roll=G.cylinder(0.0225,0.0228,0.052,30,{rings:8,capRings:3,warp:softWarp(0.0011,60)});
+  G.transformGeo(roll,T([0.0410,CY-0.008,-0.004],[0.05,0,0.03]));
+  list.push({geo:roll,mat:"gauze",name:"gauze roll"});
+
+  const wrap=shell(0.0243,0.037,-2.62,2.62,30,7,{warp:softWarp(0.0009,70)});
+  for(let i=0;i<wrap.pos.length;i+=3){
+    const y=wrap.pos[i+1], a=Math.atan2(wrap.pos[i+2],wrap.pos[i]);
+    const t=sst(0.004,0.017,y+0.0185);
+    wrap.pos[i+1]=y-t*N.fbm(a*3.6+11,0.7,2.3,3)*0.0075;
+  }
+  G.recomputeNormals(wrap); G.computeTangents(wrap);
+  G.transformGeo(wrap,T([0.0410,CY-0.012,-0.004],[0.05,0.4,0.03]));
+  list.push({geo:wrap,mat:"paper",name:"sterile wrapper",twoSided:true});
+
+  /* ---- chest seal in a crinkled foil packet ---- */
+  const packet=G.roundedBox(0.086,0.064,0.0085,0.0038,28,{warp:crumple(0.0022,150)});
+  G.transformGeo(packet,T([0.0075,CY+0.028,-0.0225],[-0.30,0.06,0.05]));
+  list.push({geo:packet,mat:"foil",name:"chest seal packet"});
+
+  /* ---- nitrile glove corner flopping over the rim ---- */
+  const gp=G.buildPath([
+    [CY+0.020,0.020],[CY+0.034,0.026],[CY+0.046,0.032],[CY+0.055,0.038],
+    [CY+0.058,0.046],[CY+0.054,0.052],[CY+0.046,0.055]
+  ]);
+  const gl=gp.length;
+  const glove=G.roundedBox(0.030,gl,0.0022,0.0009,24,{warp:crumple(0.0016,260)});
+  G.applyPath(glove,gp,gl/2,{jitter:function(x,s,z){ return (N.fbm(x*70,s*55,3.5,3)-0.5)*0.0035; }});
+  G.transformGeo(glove,T([0.0620,0,0],[0,0,0.10]));
+  list.push({geo:glove,mat:"nitrile",name:"glove corner",twoSided:true});
+
+  /* ---- syringe held by elastic loops ---- */
+  const sr=[0.22,0.10,0.13], sp=[0.0655,CY+0.006,0.0175];
+  const barrel=G.cylinder(0.0064,0.0064,0.050,20,{rings:4,capTop:false,capRings:2});
+  G.transformGeo(barrel,T(sp,sr));
+  list.push({geo:barrel,mat:"plasticLight",name:"syringe barrel"});
+  const flange=G.cylinder(0.0092,0.0092,0.0022,20,{rings:1,capRings:2});
+  G.transformGeo(flange,T([sp[0]+0.0055,sp[1]+0.0248,sp[2]-0.0030],sr));
+  list.push({geo:flange,mat:"plasticLight",name:"syringe flange"});
+  const plunger=G.roundedBox(0.0026,0.026,0.0026,0.0008,6,{});
+  G.transformGeo(plunger,T([sp[0]+0.0075,sp[1]+0.0365,sp[2]-0.0045],sr));
+  list.push({geo:plunger,mat:"plasticLight",name:"plunger"});
+  const plungerTop=G.cylinder(0.0072,0.0072,0.0020,16,{rings:1,capRings:2});
+  G.transformGeo(plungerTop,T([sp[0]+0.0110,sp[1]+0.0495,sp[2]-0.0062],sr));
+  list.push({geo:plungerTop,mat:"plasticLight",name:"plunger head"});
+  const tip=G.cylinder(0.0026,0.0016,0.0130,14,{rings:2,capRings:2});
+  G.transformGeo(tip,T([sp[0]-0.0060,sp[1]-0.0300,sp[2]+0.0035],sr));
+  list.push({geo:tip,mat:"plasticLight",name:"syringe tip"});
+  for(let k=0;k<2;k++){
+    const loop=shell(0.0082,0.0065,-2.75,2.75,22,3,{});
+    G.transformGeo(loop,T([0,0,0],[Math.PI/2,0,0]));
+    G.transformGeo(loop,T([sp[0]+(k?0.0035:-0.0035),sp[1]+(k?0.016:-0.014),sp[2]+(k?-0.002:0.002)],sr));
+    list.push({geo:loop,mat:"elastic",name:"retention loop",twoSided:true});
+  }
+}
+
+/* ============================================================
+   builders exposed to the engine (staged for the loader)
+   ============================================================ */
+NS.scene={
+  pivot:[BW/2-0.006,CY,0],
+  stages:[
+    {label:"Корпус · 500D Cordura",run:function(list){
+      list.push({geo:bodyGeo(false),mat:"cordura",states:"closed",name:"body (closed)"});
+      const bo=bodyGeo(true);
+      list.push({geo:bo,mat:"cordura",states:"open",name:"body (open)"});
+      list.push({geo:interiorGeo(),mat:"corduraIn",states:"open",name:"interior"});
+      list.push({geo:rimRing(BW/2*1.0-BR,BD/2*1.0-BR,BR,BW/2-BR-0.0085,BD/2-BR-0.0075,0.010,TOP-0.0008,84,
+        function(x,y,z){ return (N.fbm(x*30,y*30,z*30,2)-0.5)*0.0016+sst(0.02,BD/2,Math.abs(z))*0.0008; }),
+        mat:"corduraRim",states:"open",name:"mouth rim"});
+    }},
+    {label:"Клапан · нашивка",run:function(list){
+      list.push({geo:flapGeo(flapClosedPath),mat:"corduraFlap",states:"closed",name:"flap (closed)"});
+      const pc=patchGeo();
+      G.transformGeo(pc,placeOnPath(flapClosedPath,flapClosedPath.length-0.036,0,0.0044,0));
+      list.push({geo:pc,mat:"patch",states:"closed",name:"cross patch (closed)"});
+      list.push({geo:flapGeo(flapOpenPath),mat:"corduraFlap",states:"open",name:"flap (open)"});
+      const po=patchGeo();
+      G.transformGeo(po,placeOnPath(flapOpenPath,flapOpenPath.length-0.036,0,0.0044,0));
+      list.push({geo:po,mat:"patch",states:"open",name:"cross patch (open)"});
+    }},
+    {label:"Карман · молния YKK",run:function(list){ pocketParts(list); }},
+    {label:"MOLLE · велкро · ручка",run:function(list){ backParts(list); handleParts(list); frayParts(list); }},
+    {label:"Наполнение аптечки",run:function(list){
+      const sub=[];
+      contents(sub);
+      const lift=T([0,0.030,0.011]);
+      for(let i=0;i<sub.length;i++){ G.transformGeo(sub[i].geo,lift); sub[i].states="open"; list.push(sub[i]); }
+    }},
+    {label:"Студийная сцена",run:function(list){
+      list.push({geo:G.groundPlane(2.6,1),mat:"studio",name:"studio floor",noWire:true,noShadowCast:true});
+    }}
+  ]
+};
+})(window.IFAK);
+</script>
+<script>
+"use strict";
+/* ============================================================
+   IFAK POUCH VIEWER — part 5: engine, materials, camera, UI
+   ============================================================ */
+(function(NS){
+const M=NS.math, G=NS.geo;
+const clamp=M.clamp;
+const $=function(id){ return document.getElementById(id); };
+const fatalEl=$("fatal"), loader=$("loader"), loadText=$("loadText"), loadBar=$("loadBar");
+function fatal(msg){
+  fatalEl.style.display="block";
+  fatalEl.textContent=String(msg&&msg.stack||msg).slice(0,1400);
+  window.__ifakError=String(msg&&msg.stack||msg);
+  loader.classList.add("hidden");
+}
+const Q=new URLSearchParams(location.search);
+
+/* ---------------- GL bootstrap ---------------- */
+const canvas=$("gl");
+const gl=canvas.getContext("webgl2",{antialias:false,alpha:false,depth:true,stencil:false,
+  preserveDrawingBuffer:true,powerPreference:"high-performance"});
+if(!gl){ fatal("WebGL2 не поддерживается в этом браузере."); return; }
+const dbgInfo=gl.getExtension("WEBGL_debug_renderer_info");
+const RENDERER=dbgInfo?String(gl.getParameter(dbgInfo.UNMASKED_RENDERER_WEBGL)):"";
+const SOFT=/swiftshader|software|llvmpipe|basic|mesa offscreen/i.test(RENDERER);
+const LOW=Q.has("low")?Q.get("low")!=="0":(Q.has("hi")?false:SOFT);
+const extFloat=gl.getExtension("EXT_color_buffer_float");
+const extAniso=gl.getExtension("EXT_texture_filter_anisotropic");
+const ANISO=extAniso?Math.min(8,gl.getParameter(extAniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)):0;
+const HDR=!!extFloat;
+const SHADOW_SIZE=LOW?1024:2048;
+
+function compile(type,src,tag){
+  const s=gl.createShader(type);
+  gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    throw new Error(tag+": "+gl.getShaderInfoLog(s));
+  }
+  return s;
+}
+function program(vs,fs,tag){
+  const p=gl.createProgram();
+  gl.attachShader(p,compile(gl.VERTEX_SHADER,vs,tag+".vert"));
+  gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fs,tag+".frag"));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(tag+" link: "+gl.getProgramInfoLog(p));
+  p._u=new Map();
+  return p;
+}
+function U(p,n){
+  if(p._u.has(n)) return p._u.get(n);
+  const l=gl.getUniformLocation(p,n); p._u.set(n,l); return l;
+}
+let progMesh,progDepth,progWire,progBg,progBright,progBlur,progComp,dummyVao;
+
+/* ---------------- textures ---------------- */
+const TEX={};
+function mkTex(data,S,clampMode){
+  const t=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,S,S,0,gl.RGBA,gl.UNSIGNED_BYTE,data);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  const wrap=clampMode?gl.CLAMP_TO_EDGE:gl.REPEAT;
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,wrap);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,wrap);
+  if(ANISO) gl.texParameterf(gl.TEXTURE_2D,extAniso.TEXTURE_MAX_ANISOTROPY_EXT,ANISO);
+  return t;
+}
+
+/* ---------------- material library ---------------- */
+const DEF={tint:[1,1,1],rough:[1,0],metalMul:1,metalAdd:0,nrm:1,sheen:0,
+  sheenTint:[0.75,0.68,0.55],grime:0,sss:0,fuzz:0,aoAmt:0.9,
+  stitch:[0,0,0.003,0.0012],stitchCol:[0.46,0.40,0.30],off:[0,0],groundFade:0,clampUv:false,twoSided:false};
+const MAT={
+  cordura:    {tex:"cordura",uv:1/0.115,stitch:[1,0.0044,0.0032,0.0015],sheen:0.16,fuzz:0.45,grime:1},
+  corduraB:   {tex:"cordura",uv:1/0.115,off:[0.33,0.61],stitch:[1,0.0038,0.0031,0.0014],sheen:0.16,fuzz:0.45,grime:1},
+  corduraFlap:{tex:"cordura",uv:1/0.115,off:[0.62,0.23],stitch:[1,0.0040,0.0032,0.0014],sheen:0.16,fuzz:0.45,grime:0.85},
+  corduraRim: {tex:"cordura",uv:1/0.105,off:[0.13,0.44],stitch:[1,0.0030,0.0030,0.0013],sheen:0.16,fuzz:0.5,grime:0.9},
+  corduraIn:  {tex:"cordura",uv:1/0.10,off:[0.47,0.07],tint:[0.44,0.43,0.42],sheen:0.10,fuzz:0.5,grime:0.15,aoAmt:1},
+  webbing:    {tex:"webbing",uv:1/0.075,tint:[0.78,0.72,0.60],stitch:[1,0.0026,0.0029,0.0012],sheen:0.13,fuzz:0.38,grime:1},
+  handle:     {tex:"webbing",uv:1/0.075,off:[0.41,0.17],tint:[0.52,0.49,0.44],sheen:0.22,fuzz:0.5,grime:1.7},
+  velcro:     {tex:"velcro",uv:1/0.085,tint:[0.66,0.61,0.53],nrm:1.25,sheen:0.07,fuzz:0.45,grime:0.7,stitch:[1,0.0032,0.0030,0.0012]},
+  thread:     {tex:"thread",uv:1/0.02,sheen:0.28,fuzz:0.4,grime:0.5},
+  patch:      {tex:"patch",uv:1/0.054,off:[0.5,0.5],clampUv:true,tint:[1.05,0.97,0.84],nrm:1.15,sheen:0.18,fuzz:0.4,grime:0.45},
+  zipTeeth:   {tex:"plastic",uv:1/0.05,tint:[1.5,1.5,1.6],rough:[0.75,0.04],grime:0.35},
+  zipMetal:   {tex:"plastic",uv:1/0.05,tint:[2.9,2.9,3.0],rough:[0.5,0.05],metalAdd:0.92,grime:0.25},
+  cord:       {tex:"webbing",uv:1/0.045,tint:[0.92,0.86,0.76],sheen:0.26,fuzz:0.45,grime:0.7},
+  nylonBlack: {tex:"webbing",uv:1/0.10,tint:[0.27,0.27,0.29],stitch:[1,0.0026,0.0028,0.0011],sheen:0.20,fuzz:0.7,grime:0.25},
+  plasticDark:{tex:"plastic",uv:1/0.055,rough:[0.9,0],grime:0.2},
+  plasticLight:{tex:"plastic",uv:1/0.05,tint:[4.2,4.2,4.3],rough:[0.7,0.02],grime:0.15},
+  redTab:     {tex:"plastic",uv:1/0.03,tint:[5.4,1.15,0.95],rough:[1.05,0.04],grime:0.25},
+  gauze:      {tex:"gauze",uv:1/0.10,sheen:0.30,fuzz:0.5,sss:0.38,grime:0.2},
+  paper:      {tex:"paper",uv:1/0.12,sheen:0.10,fuzz:0.4,sss:0.28,grime:0.28},
+  foil:       {tex:"foil",uv:1/0.12,nrm:1.2,grime:0.12},
+  nitrile:    {tex:"rubber",uv:1/0.08,sss:0.55,grime:0.1},
+  elastic:    {tex:"elastic",uv:1/0.05,sheen:0.12,grime:0.25},
+  studio:     {tex:"studio",uv:1/0.30,groundFade:1,aoAmt:0.3,rough:[1,0.06]}
+};
+function mat(name){
+  const m=MAT[name]||MAT.cordura, o={};
+  for(const k in DEF) o[k]=DEF[k];
+  for(const k in m) o[k]=m[k];
+  return o;
+}
+
+/* ---------------- mesh upload ---------------- */
+const parts=[];
+function upload(part){
+  const g=part.geo;
+  const vao=gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const posBuf=gl.createBuffer();
+  function attrib(loc,arr,size,buf){
+    const b=buf||gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,b);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0);
+    return b;
+  }
+  attrib(0,g.pos,3,posBuf);
+  attrib(1,g.nrm,3); attrib(2,g.uv,2); attrib(3,g.tan,4); attrib(4,g.edg,2); attrib(5,g.ao,1);
+  const nv=g.pos.length/3, big=nv>65535;
+  const ib=gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,big?new Uint32Array(g.idx):new Uint16Array(g.idx),gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  part.vao=vao; part.count=g.idx.length; part.tris=g.idx.length/3;
+  part.itype=big?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT;
+  part.verts=nv;
+  if(!part.noWire){
+    const seen=new Set(), lines=[];
+    for(let i=0;i<g.edges.length;i+=2){
+      const a=g.edges[i], b=g.edges[i+1];
+      const k=a<b?a*100003+b:b*100003+a;
+      if(seen.has(k)) continue;
+      seen.add(k); lines.push(a,b);
+    }
+    const wvao=gl.createVertexArray();
+    gl.bindVertexArray(wvao);
+    gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+    const lb=gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lb);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,big?new Uint32Array(lines):new Uint16Array(lines),gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    part.wvao=wvao; part.wcount=lines.length;
+  }
+  part.model=M.m4id();
+  part.nrmMat=M.m3normal(part.model);
+  part.m=mat(part.mat);
+  if(part.twoSided) part.m.twoSided=true;
+  part.geo=null;
+  return part;
+}
+
+/* ---------------- framebuffers ---------------- */
+let sceneFB=null,sceneTex=null,sceneDepth=null,SW=1,SH=1;
+let bloomFB=[null,null],bloomTex=[null,null],BW2=1,BH2=1;
+let shFB=null,shTex=null;
+function texFor(w,h,float){
+  const t=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  if(float) gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.HALF_FLOAT,null);
+  else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return t;
+}
+function makeShadow(){
+  shTex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,shTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,SHADOW_SIZE,SHADOW_SIZE,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  shFB=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,shFB);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,shTex,0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+}
+let ss=1;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,LOW?1:1.5);
+  let w=Math.max(320,Math.round(canvas.clientWidth*dpr));
+  let h=Math.max(240,Math.round(canvas.clientHeight*dpr));
+  const cap=LOW?1.15e6:2.1e6;
+  if(w*h>cap){ const k=Math.sqrt(cap/(w*h)); w=Math.round(w*k); h=Math.round(h*k); }
+  if(canvas.width===w&&canvas.height===h&&sceneFB) return;
+  canvas.width=w; canvas.height=h;
+  ss=LOW?1:(w*h>1.35e6?1.35:1.8);
+  SW=Math.round(w*ss); SH=Math.round(h*ss);
+  if(sceneFB){ gl.deleteFramebuffer(sceneFB); gl.deleteTexture(sceneTex); gl.deleteRenderbuffer(sceneDepth); }
+  sceneTex=texFor(SW,SH,HDR);
+  sceneDepth=gl.createRenderbuffer();
+  gl.bindRenderbuffer(gl.RENDERBUFFER,sceneDepth);
+  gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT24,SW,SH);
+  sceneFB=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sceneFB);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,sceneTex,0);
+  gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,sceneDepth);
+  BW2=Math.max(2,Math.round(w/2)); BH2=Math.max(2,Math.round(h/2));
+  for(let i=0;i<2;i++){
+    if(bloomFB[i]){ gl.deleteFramebuffer(bloomFB[i]); gl.deleteTexture(bloomTex[i]); }
+    bloomTex[i]=texFor(BW2,BH2,HDR);
+    bloomFB[i]=gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER,bloomFB[i]);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,bloomTex[i],0);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  dirty=true;
+}
+
+/* ---------------- camera & lights ---------------- */
+const cam={yaw:0.62,pitch:0.30,dist:0.50,target:[0,0.070,0],fov:26};
+const CAMS={closed:{yaw:0.62,pitch:0.30,dist:0.50,target:[0,0.070,0]},
+  open:{yaw:0.58,pitch:0.80,dist:0.575,target:[0,0.072,0.004]}};
+let camTouched=false;
+function applyCam(s){ const c=CAMS[s]||CAMS.closed; cam.yaw=c.yaw; cam.pitch=c.pitch; cam.dist=c.dist; cam.target=[c.target[0],c.target[1],c.target[2]]; camTouched=false; }
+const view={state:Q.get("state")==="open"?"open":"closed",ch:parseInt(Q.get("ch")||"0",10)||0,
+  wire:Q.get("wire")==="1",spin:Q.get("spin")!=="0",expo:1,lrot:0};
+applyCam(view.state);
+if(Q.has("yaw")) cam.yaw=parseFloat(Q.get("yaw"));
+if(Q.has("pitch")) cam.pitch=parseFloat(Q.get("pitch"));
+if(Q.has("dist")) cam.dist=parseFloat(Q.get("dist"));
+if(Q.has("ty")) cam.target[1]=parseFloat(Q.get("ty"));
+let dirty=true;
+const L={
+  key:{dir:[-0.52,0.70,0.48],col:[3.35,3.26,3.12]},
+  rim:{dir:[0.74,0.30,-0.60],col:[2.25,1.42,0.72]},
+  fill:{dir:[0.44,-0.06,0.86],col:[0.30,0.35,0.44]}
+};
+function rotY(v,a){
+  const c=Math.cos(a),s=Math.sin(a);
+  return [v[0]*c+v[2]*s, v[1], -v[0]*s+v[2]*c];
+}
+function norm(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; }
+function camPos(){
+  const cp=Math.cos(cam.pitch);
+  return [cam.target[0]+Math.sin(cam.yaw)*cp*cam.dist,
+          cam.target[1]+Math.sin(cam.pitch)*cam.dist,
+          cam.target[2]+Math.cos(cam.yaw)*cp*cam.dist];
+}
+
+/* ---------------- render ---------------- */
+function visible(p){ return !p.states || p.states===view.state; }
+function drawFullscreen(){ gl.bindVertexArray(dummyVao); gl.drawArrays(gl.TRIANGLES,0,3); }
+
+function renderFrame(){
+  const keyDir=norm(rotY(L.key.dir,view.lrot*M.DEG));
+  const rimDir=norm(rotY(L.rim.dir,view.lrot*M.DEG*0.6));
+  const fillDir=norm(L.fill.dir);
+  const ctr=[0,0.072,0], d=0.55;
+  const lightVP=M.m4mul(M.m4ortho(-0.145,0.145,-0.145,0.145,0.02,1.2),
+    M.m4look([ctr[0]+keyDir[0]*d,ctr[1]+keyDir[1]*d,ctr[2]+keyDir[2]*d],ctr,[0,1,0]));
+
+  /* --- shadow pass --- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,shFB);
+  gl.viewport(0,0,SHADOW_SIZE,SHADOW_SIZE);
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(progDepth);
+  gl.uniformMatrix4fv(U(progDepth,"uLightVP"),false,lightVP);
+  for(let i=0;i<parts.length;i++){
+    const p=parts[i];
+    if(!visible(p)||p.noShadowCast) continue;
+    gl.uniformMatrix4fv(U(progDepth,"uModel"),false,p.model);
+    gl.bindVertexArray(p.vao);
+    gl.drawElements(gl.TRIANGLES,p.count,p.itype,0);
+  }
+
+  /* --- scene pass --- */
+  const eye=camPos();
+  const proj=M.m4persp(cam.fov*M.DEG,SW/SH,0.015,8);
+  const viewM=M.m4look(eye,cam.target,[0,1,0]);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sceneFB);
+  gl.viewport(0,0,SW,SH);
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+  gl.useProgram(progBg); drawFullscreen();
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+  gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+  gl.useProgram(progMesh);
+  gl.uniformMatrix4fv(U(progMesh,"uProj"),false,proj);
+  gl.uniformMatrix4fv(U(progMesh,"uView"),false,viewM);
+  gl.uniformMatrix4fv(U(progMesh,"uLightVP"),false,lightVP);
+  gl.uniform3fv(U(progMesh,"uCam"),eye);
+  gl.uniform2f(U(progMesh,"uRes"),SW,SH);
+  gl.uniform2f(U(progMesh,"uShadowSize"),SHADOW_SIZE,SHADOW_SIZE);
+  gl.uniform1f(U(progMesh,"uShadowSoft"),LOW?1.6:2.4);
+  gl.uniform1i(U(progMesh,"uViewMode"),view.ch);
+  gl.uniform3fv(U(progMesh,"uKeyDir"),keyDir);
+  gl.uniform3fv(U(progMesh,"uKeyCol"),L.key.col);
+  gl.uniform3fv(U(progMesh,"uRimDir"),rimDir);
+  gl.uniform3fv(U(progMesh,"uRimCol"),L.rim.col);
+  gl.uniform3fv(U(progMesh,"uFillDir"),fillDir);
+  gl.uniform3fv(U(progMesh,"uFillCol"),L.fill.col);
+  gl.uniform1i(U(progMesh,"uAlb"),0);
+  gl.uniform1i(U(progMesh,"uNrmTex"),1);
+  gl.uniform1i(U(progMesh,"uMra"),2);
+  gl.uniform1i(U(progMesh,"uShadow"),3);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D,shTex);
+  for(let i=0;i<parts.length;i++){
+    const p=parts[i];
+    if(!visible(p)) continue;
+    const m=p.m, t=TEX[m.tex]||TEX.cordura;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,t.alb);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,t.nrm);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D,t.mra);
+    gl.uniformMatrix4fv(U(progMesh,"uModel"),false,p.model);
+    gl.uniformMatrix3fv(U(progMesh,"uNrmMat"),false,p.nrmMat);
+    gl.uniform3fv(U(progMesh,"uTint"),m.tint);
+    gl.uniform2f(U(progMesh,"uUvScale"),m.uv,m.uv);
+    gl.uniform2fv(U(progMesh,"uUvOffset"),m.off);
+    gl.uniform1f(U(progMesh,"uRoughMul"),m.rough[0]);
+    gl.uniform1f(U(progMesh,"uRoughAdd"),m.rough[1]);
+    gl.uniform1f(U(progMesh,"uMetalMul"),m.metalMul);
+    gl.uniform1f(U(progMesh,"uMetalAdd"),m.metalAdd);
+    gl.uniform1f(U(progMesh,"uNrmScale"),m.nrm);
+    gl.uniform1f(U(progMesh,"uSheen"),m.sheen);
+    gl.uniform3fv(U(progMesh,"uSheenTint"),m.sheenTint);
+    gl.uniform1f(U(progMesh,"uGrime"),m.grime);
+    gl.uniform1f(U(progMesh,"uSSS"),m.sss);
+    gl.uniform1f(U(progMesh,"uFuzz"),m.fuzz);
+    gl.uniform1f(U(progMesh,"uAoAmt"),m.aoAmt);
+    gl.uniform1f(U(progMesh,"uGroundFade"),m.groundFade);
+    gl.uniform4fv(U(progMesh,"uStitch"),m.stitch);
+    gl.uniform3fv(U(progMesh,"uStitchCol"),m.stitchCol);
+    if(m.twoSided) gl.disable(gl.CULL_FACE); else gl.enable(gl.CULL_FACE);
+    gl.bindVertexArray(p.vao);
+    gl.drawElements(gl.TRIANGLES,p.count,p.itype,0);
+  }
+  gl.enable(gl.CULL_FACE);
+
+  if(view.wire){
+    gl.useProgram(progWire);
+    gl.uniformMatrix4fv(U(progWire,"uProj"),false,proj);
+    gl.uniformMatrix4fv(U(progWire,"uView"),false,viewM);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.uniform4f(U(progWire,"uColor"),0.16,0.42,0.95,0.42);
+    for(let i=0;i<parts.length;i++){
+      const p=parts[i];
+      if(!visible(p)||!p.wvao) continue;
+      gl.uniformMatrix4fv(U(progWire,"uModel"),false,p.model);
+      gl.bindVertexArray(p.wvao);
+      gl.drawElements(gl.LINES,p.wcount,p.itype,0);
+    }
+    gl.disable(gl.BLEND);
+  }
+
+  /* --- bloom --- */
+  const raw=view.ch!==0;
+  if(!raw){
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,bloomFB[0]);
+    gl.viewport(0,0,BW2,BH2);
+    gl.useProgram(progBright);
+    gl.uniform1i(U(progBright,"uScene"),0);
+    gl.uniform1f(U(progBright,"uThresh"),0.85);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,sceneTex);
+    drawFullscreen();
+    gl.useProgram(progBlur);
+    gl.uniform1i(U(progBlur,"uScene"),0);
+    for(let pass=0;pass<2;pass++){
+      gl.bindFramebuffer(gl.FRAMEBUFFER,bloomFB[1-(pass%2)]);
+      gl.uniform2f(U(progBlur,"uDir"),pass===0?1.4/BW2:0,pass===0?0:1.4/BH2);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,bloomTex[pass%2]);
+      drawFullscreen();
+    }
+  }
+
+  /* --- composite --- */
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
+  gl.useProgram(progComp);
+  gl.uniform1i(U(progComp,"uScene"),0);
+  gl.uniform1i(U(progComp,"uBloom"),1);
+  gl.uniform1f(U(progComp,"uExposure"),view.expo);
+  gl.uniform1f(U(progComp,"uBloomAmt"),0.16);
+  gl.uniform1f(U(progComp,"uTime"),performance.now()*0.001);
+  gl.uniform2f(U(progComp,"uRes"),canvas.width,canvas.height);
+  gl.uniform1i(U(progComp,"uRaw"),raw?1:0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,sceneTex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,bloomTex[0]);
+  drawFullscreen();
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+}
+
+/* ---------------- loop ---------------- */
+let last=performance.now(), fpsAcc=0, fpsN=0, fpsT=0;
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(view.spin){ cam.yaw+=dt*0.20; dirty=true; }
+  if(dirty){
+    resize();
+    renderFrame();
+    dirty=view.spin;
+    fpsAcc+=dt; fpsN++;
+  }
+  fpsT+=dt;
+  if(fpsT>0.5){
+    const el=$("fpsBadge");
+    el.innerHTML=(fpsN>1?Math.round(fpsN/Math.max(fpsAcc,1e-3)):"\u2014")+" <b>fps</b>";
+    fpsAcc=0; fpsN=0; fpsT=0;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- interaction ---------------- */
+let drag=null;
+canvas.addEventListener("pointerdown",function(e){
+  drag={x:e.clientX,y:e.clientY,b:e.button};
+  canvas.setPointerCapture(e.pointerId);
+  canvas.classList.add("dragging");
+  if(e.button===0) view.spin=false, syncUI();
+});
+canvas.addEventListener("pointermove",function(e){
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  drag.x=e.clientX; drag.y=e.clientY; camTouched=true;
+  if(drag.b===0){
+    cam.yaw-=dx*0.0075;
+    cam.pitch=clamp(cam.pitch+dy*0.0065,-0.85,1.25);
+  }else{
+    const s=cam.dist*0.0016;
+    const right=[Math.cos(cam.yaw),0,-Math.sin(cam.yaw)];
+    cam.target[0]=clamp(cam.target[0]-right[0]*dx*s,-0.12,0.12);
+    cam.target[2]=clamp(cam.target[2]-right[2]*dx*s,-0.12,0.12);
+    cam.target[1]=clamp(cam.target[1]+dy*s,-0.02,0.20);
+  }
+  dirty=true;
+});
+function endDrag(e){ drag=null; canvas.classList.remove("dragging"); }
+canvas.addEventListener("pointerup",endDrag);
+canvas.addEventListener("pointercancel",endDrag);
+canvas.addEventListener("contextmenu",function(e){ e.preventDefault(); });
+canvas.addEventListener("wheel",function(e){
+  e.preventDefault();
+  camTouched=true;
+  cam.dist=clamp(cam.dist*Math.exp(e.deltaY*0.0011),0.20,1.30);
+  dirty=true;
+},{passive:false});
+
+function setState(s){ view.state=s; if(!camTouched) applyCam(s); dirty=true; syncUI(); updateCounts(); }
+function setCh(c){ view.ch=c; dirty=true; syncUI(); }
+function syncUI(){
+  $("stClosed").setAttribute("aria-pressed",String(view.state==="closed"));
+  $("stOpen").setAttribute("aria-pressed",String(view.state==="open"));
+  document.querySelectorAll(".ch").forEach(function(b){
+    b.setAttribute("aria-pressed",String(parseInt(b.dataset.ch,10)===view.ch));
+  });
+  $("btnWire").setAttribute("aria-pressed",String(view.wire));
+  $("btnSpin").setAttribute("aria-pressed",String(view.spin));
+  $("expoVal").textContent=view.expo.toFixed(2);
+  $("lrotVal").textContent=Math.round(view.lrot)+"\u00b0";
+}
+function updateCounts(){
+  let tris=0;
+  for(let i=0;i<parts.length;i++){
+    const p=parts[i];
+    if(visible(p)&&!p.noWire) tris+=p.tris;
+  }
+  const fmt=Math.round(tris).toLocaleString("ru-RU");
+  $("triBadge").innerHTML=fmt+" <b>\u0442\u0440.</b>";
+  $("triSpec").textContent=fmt+" \u0442\u0440.";
+}
+$("stClosed").onclick=function(){ setState("closed"); };
+$("stOpen").onclick=function(){ setState("open"); };
+document.querySelectorAll(".ch").forEach(function(b){
+  b.onclick=function(){ setCh(parseInt(b.dataset.ch,10)); };
+});
+$("btnWire").onclick=function(){ view.wire=!view.wire; dirty=true; syncUI(); };
+$("btnSpin").onclick=function(){ view.spin=!view.spin; dirty=true; syncUI(); };
+$("expo").oninput=function(e){ view.expo=parseFloat(e.target.value); dirty=true; syncUI(); };
+$("lrot").oninput=function(e){ view.lrot=parseFloat(e.target.value); dirty=true; syncUI(); };
+$("btnReset").onclick=function(){
+  applyCam(view.state); dirty=true;
+};
+$("btnSpec").onclick=function(){ $("specPanel").classList.toggle("show"); };
+$("btnShot").onclick=function(){
+  resize(); renderFrame();
+  canvas.toBlob(function(b){
+    if(!b) return;
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(b);
+    a.download="IFAK_pouch_"+view.state+".png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  },"image/png");
+};
+window.addEventListener("keydown",function(e){
+  const k=e.key.toLowerCase();
+  if(k>="1"&&k<="6"){ setCh(parseInt(k,10)-1); }
+  else if(k==="w"){ view.wire=!view.wire; dirty=true; syncUI(); }
+  else if(k==="o"){ setState(view.state==="open"?"closed":"open"); }
+  else if(k==="r"){ $("btnReset").onclick(); }
+  else if(k===" "){ e.preventDefault(); view.spin=!view.spin; dirty=true; syncUI(); }
+});
+window.addEventListener("resize",function(){ dirty=true; });
+
+/* ---------------- boot ---------------- */
+function raf(){ return new Promise(function(r){ let done=false; const f=function(){ if(done) return; done=true; r(); }; requestAnimationFrame(function(){ setTimeout(f,0); }); setTimeout(f,160); }); }
+function setProgress(p,txt){
+  loadBar.style.width=Math.round(p*100)+"%";
+  if(txt) loadText.textContent=txt;
+}
+async function boot(){
+  let frag=NS.glsl.meshFrag;
+  frag=frag.replace("uniform vec4 uStitch;","uniform float uMetalAdd;\nuniform vec4 uStitch;");
+  frag=frag.replace("clamp(mra.b*uMetalMul,0.0,1.0)","clamp(mra.b*uMetalMul+uMetalAdd,0.0,1.0)");
+  progMesh=program(NS.glsl.meshVert,frag,"mesh");
+  progDepth=program(NS.glsl.depthVert,NS.glsl.depthFrag,"depth");
+  progWire=program(NS.glsl.wireVert,NS.glsl.wireFrag,"wire");
+  progBg=program(NS.glsl.quadVert,NS.glsl.bgFrag,"bg");
+  progBright=program(NS.glsl.quadVert,NS.glsl.brightFrag,"bright");
+  progBlur=program(NS.glsl.quadVert,NS.glsl.blurFrag,"blur");
+  progComp=program(NS.glsl.quadVert,NS.glsl.compositeFrag,"composite");
+  dummyVao=gl.createVertexArray();
+  makeShadow();
+  resize();
+
+  const stages=NS.scene.stages, jobs=NS.tex.jobs(LOW);
+  const total=stages.length+jobs.length+1;
+  let step=0;
+  for(let i=0;i<stages.length;i++){
+    setProgress(step/total,"\u0413\u0435\u043e\u043c\u0435\u0442\u0440\u0438\u044f: "+stages[i].label);
+    await raf();
+    const list=[];
+    stages[i].run(list);
+    for(let j=0;j<list.length;j++) parts.push(upload(list[j]));
+    step++;
+  }
+  for(let i=0;i<jobs.length;i++){
+    setProgress(step/total,"\u0422\u0435\u043a\u0441\u0442\u0443\u0440\u044b PBR: "+jobs[i].label);
+    await raf();
+    const maps=jobs[i].run();
+    const clampUv=jobs[i].name==="patch";
+    TEX[jobs[i].name]={alb:mkTex(maps.alb,maps.S,clampUv),nrm:mkTex(maps.nrm,maps.S,clampUv),mra:mkTex(maps.mra,maps.S,clampUv)};
+    step++;
+  }
+  setProgress(1,"\u0413\u043e\u0442\u043e\u0432\u043e");
+  updateCounts(); syncUI();
+  $("expo").value=String(view.expo);
+  $("lrot").value=String(view.lrot);
+  await raf();
+  dirty=true;
+  renderFrame();
+  loader.classList.add("hidden");
+  setTimeout(function(){ loader.style.display="none"; },600);
+  window.__ifakReady=true;
+  requestAnimationFrame(loop);
+}
+boot().catch(function(e){ fatal(e); });
+})(window.IFAK);
+</script>
+</body>
+</html>
