@@ -2247,7 +2247,7 @@ module.exports = function (G, C) {
     const P = bag();
     const Y = 0.0;                          // ось буферной трубы на уровне посадки
     const R_T = 14.6;                        // труба Ø29,2 (карабинная)
-    const L_T = 196;
+    const L_T = 180;                         // труба короче: салазка уходит дальше назад
     const pos = 26 + O.ext * 17.5;           // вылет салазки по фиксатору
 
     P.add('bufferTube', 'anod', tr(cyl(R_T, R_T, 0, L_T, 34, true), 0, Y, 0));
