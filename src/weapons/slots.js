@@ -74,7 +74,8 @@ module.exports = {
     slots: [
       { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 70, -500], rot: [0, 0, 0],
         accepts: ['muzzle'], order: 0, group: 'body' },
-      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -110], rot: [0, 0, 0],
+      /* цевьё садится на гайку ствола у ресивера: Z=-36, ось канала 70 */
+      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -36], rot: [0, 0, 0],
         accepts: ['handguard'], length: 260, order: 0, group: 'body' },
       /* штатная планка ресивера: верх на y=104 (98 + 6 высоты основания) */
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -10], rot: [0, 0, 0],

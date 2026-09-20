@@ -17,7 +17,7 @@ module.exports = function (G) {
   /* Цвет — линейный RGB, metal/rough — как в PBR. Адаптеры движков
      переводят эти записи в свои материалы. alpha<1 → прозрачная деталь. */
   const MATS = {
-    anod:     { color: [0.026, 0.028, 0.031], metal: 0.84, rough: 0.47 },  // чёрный анодированный алюминий
+    anod:     { color: [0.040, 0.042, 0.046], metal: 0.82, rough: 0.45 },  // чёрный анодированный алюминий
     anodMatt: { color: [0.030, 0.031, 0.033], metal: 0.55, rough: 0.66 },  // матовая анодировка корпусов
     fde:      { color: [0.170, 0.132, 0.077], metal: 0.06, rough: 0.63 },  // FDE-полимер / Cerakote
     od:       { color: [0.044, 0.052, 0.030], metal: 0.10, rough: 0.62 },  // olive drab
@@ -26,7 +26,7 @@ module.exports = function (G) {
     nitride:  { color: [0.042, 0.043, 0.046], metal: 0.92, rough: 0.36 },  // нитрид/QPQ дульных устройств
     park:     { color: [0.052, 0.052, 0.050], metal: 0.90, rough: 0.58 },  // фосфатирование (АК)
     inconel:  { color: [0.205, 0.198, 0.186], metal: 1.00, rough: 0.41 },  // перегородки глушителя
-    poly:     { color: [0.029, 0.030, 0.033], metal: 0.00, rough: 0.58 },
+    poly:     { color: [0.052, 0.054, 0.058], metal: 0.02, rough: 0.55 },  // чёрный полимер
     wood:     { color: [0.196, 0.083, 0.031], metal: 0.00, rough: 0.44 },  // лакированная берёза
     woodDk:   { color: [0.118, 0.046, 0.017], metal: 0.00, rough: 0.50 },
     bakelite: { color: [0.245, 0.072, 0.062], metal: 0.06, rough: 0.38 },  // «слива»

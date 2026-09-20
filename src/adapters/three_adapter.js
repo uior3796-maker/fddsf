@@ -230,9 +230,20 @@ module.exports = function (G, C) {
         g.quaternion.copy(q);
       },
 
+      /* Полное снятие сборки со сцены.
+         Важно: группы слотов могут висеть не на root, а в анимируемых ригах
+         оружия (магазин, затвор). Если удалять только root, такие группы
+         остаются в сцене и новые модули накладываются на старые. */
       dispose() {
+        for (const k in slotGroups) {
+          const g = slotGroups[k];
+          if (g.parent) g.parent.remove(g);
+        }
+        if (root.parent) root.parent.remove(root);
+        for (const b of beams) if (b.anchor && b.anchor.parent) b.anchor.parent.remove(b.anchor);
         for (const g of geos) g.dispose();
         for (const m of mats) m.dispose();
+        geos.length = 0; mats.length = 0;
       }
     };
 

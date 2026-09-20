@@ -2042,7 +2042,7 @@ module.exports = function (G) {
   /* Цвет — линейный RGB, metal/rough — как в PBR. Адаптеры движков
      переводят эти записи в свои материалы. alpha<1 → прозрачная деталь. */
   const MATS = {
-    anod:     { color: [0.026, 0.028, 0.031], metal: 0.84, rough: 0.47 },  // чёрный анодированный алюминий
+    anod:     { color: [0.040, 0.042, 0.046], metal: 0.82, rough: 0.45 },  // чёрный анодированный алюминий
     anodMatt: { color: [0.030, 0.031, 0.033], metal: 0.55, rough: 0.66 },  // матовая анодировка корпусов
     fde:      { color: [0.170, 0.132, 0.077], metal: 0.06, rough: 0.63 },  // FDE-полимер / Cerakote
     od:       { color: [0.044, 0.052, 0.030], metal: 0.10, rough: 0.62 },  // olive drab
@@ -2051,7 +2051,7 @@ module.exports = function (G) {
     nitride:  { color: [0.042, 0.043, 0.046], metal: 0.92, rough: 0.36 },  // нитрид/QPQ дульных устройств
     park:     { color: [0.052, 0.052, 0.050], metal: 0.90, rough: 0.58 },  // фосфатирование (АК)
     inconel:  { color: [0.205, 0.198, 0.186], metal: 1.00, rough: 0.41 },  // перегородки глушителя
-    poly:     { color: [0.029, 0.030, 0.033], metal: 0.00, rough: 0.58 },
+    poly:     { color: [0.052, 0.054, 0.058], metal: 0.02, rough: 0.55 },  // чёрный полимер
     wood:     { color: [0.196, 0.083, 0.031], metal: 0.00, rough: 0.44 },  // лакированная берёза
     woodDk:   { color: [0.118, 0.046, 0.017], metal: 0.00, rough: 0.50 },
     bakelite: { color: [0.245, 0.072, 0.062], metal: 0.06, rough: 0.38 },  // «слива»
@@ -4426,7 +4426,7 @@ module.exports = function () {
       /* дульное устройство: от резьбы вперёд */
       muzzle: [{ box: [-16, 58, -722, 16, 92, -634] }],
       /* магазин живёт в своей группе — убираем целиком */
-      mag: [{ box: [-20, -200, -215, 20, 50, -80], group: 'magazine' }],
+      mag: [{ group: 'magazine' }],
       /* штатная крышка коробки заменяется крышкой с планкой */
       mount: [{ box: [-21, 96, -258, 21, 126, 16] }]
     },
@@ -4434,7 +4434,7 @@ module.exports = function () {
       handguard: [{ box: [-26, 28, -478, 26, 124, -285] }],
       stock: [{ box: [-30, -30, 30, 30, 100, 300] }],
       muzzle: [{ box: [-16, 58, -670, 16, 92, -638] }],
-      mag: [{ box: [-20, -200, -225, 20, 42, -75], group: 'magazine' }],
+      mag: [{ group: 'magazine' }],
       mount: [{ box: [-21, 92, -250, 21, 124, 20] }]
     },
     m416: {
@@ -4445,23 +4445,30 @@ module.exports = function () {
         { box: [-16, 106, -230, 16, 150, -160] },   // целик
         { box: [-16, 106, -30, 16, 150, 40] }       // мушка на газблоке/планке
       ],
-      /* цевьё с планкой: длинная труба перед ресивером */
-      handguard: [{ box: [-28, 44, -432, 28, 112, -30] }],
+      /* Штатное цевьё: труба вокруг ствола и планка над ней. Зона не должна
+         задевать сам ствол (Ø~20 у оси 70) и газблок, поэтому вырезаем
+         только «скорлупу»: два боковых и верхний объёмы. */
+      handguard: [
+        { box: [-30, 84, -400, 30, 110, -40] },    // верхняя планка цевья
+        { box: [-30, 40, -400, -12, 100, -40] },   // левая стенка
+        { box: [12, 40, -400, 30, 100, -40] },     // правая стенка
+        { box: [-30, 40, -400, 30, 58, -40] }      // низ
+      ],
       stock: [{ box: [-34, -10, 0, 34, 116, 300] }],
       muzzle: [{ box: [-16, 54, -575, 16, 88, -518] }],
-      mag: [{ box: [-20, -200, -160, 20, 60, -55], group: 'magazine' }]
+      mag: [{ group: 'magazine' }]
     },
     scarh: {
       handguard: [{ box: [-30, -30, -330, 30, 40, -60] }],
       stock: [{ box: [-40, -60, 0, 40, 60, 320] }],
       muzzle: [{ box: [-18, -20, -505, 18, 20, -425] }],
-      mag: [{ box: [-22, -220, -180, 22, -10, -60], group: 'magazine' }]
+      mag: [{ group: 'magazine' }]
     },
     mp5a3: {
       handguard: [{ box: [-28, -34, -215, 28, 34, -70] }],
       stock: [{ box: [-36, -40, 60, 36, 60, 340] }],
       muzzle: [{ box: [-16, -18, -260, 16, 18, -225] }],
-      mag: [{ box: [-20, -230, -150, 20, -8, -50], group: 'magazine' }]
+      mag: [{ group: 'magazine' }]
     },
     svd: { muzzle: [{ box: [-18, -20, -600, 18, 20, -545] }] },
     remington870: { muzzle: [{ box: [-18, -20, -505, 18, 20, -455] }] },
@@ -4599,7 +4606,7 @@ module.exports = function () {
 
       /* геометрическое вырезание по зонам */
       const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
-      const own = zones.filter((z) => !z.group);
+      const own = zones.filter((z) => !z.group && z.box);
       cutTotal += o.geometry && o.geometry.index
         ? carveIndexed(THREE, o, own, m)
         : carveGeometry(THREE, o, own, m);
@@ -5051,9 +5058,20 @@ module.exports = function (G, C) {
         g.quaternion.copy(q);
       },
 
+      /* Полное снятие сборки со сцены.
+         Важно: группы слотов могут висеть не на root, а в анимируемых ригах
+         оружия (магазин, затвор). Если удалять только root, такие группы
+         остаются в сцене и новые модули накладываются на старые. */
       dispose() {
+        for (const k in slotGroups) {
+          const g = slotGroups[k];
+          if (g.parent) g.parent.remove(g);
+        }
+        if (root.parent) root.parent.remove(root);
+        for (const b of beams) if (b.anchor && b.anchor.parent) b.anchor.parent.remove(b.anchor);
         for (const g of geos) g.dispose();
         for (const m of mats) m.dispose();
+        geos.length = 0; mats.length = 0;
       }
     };
 
@@ -5239,7 +5257,8 @@ module.exports = {
     slots: [
       { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 70, -500], rot: [0, 0, 0],
         accepts: ['muzzle'], order: 0, group: 'body' },
-      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -110], rot: [0, 0, 0],
+      /* цевьё садится на гайку ствола у ресивера: Z=-36, ось канала 70 */
+      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -36], rot: [0, 0, 0],
         accepts: ['handguard'], length: 260, order: 0, group: 'body' },
       /* штатная планка ресивера: верх на y=104 (98 + 6 высоты основания) */
       { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -10], rot: [0, 0, 0],
@@ -5843,11 +5862,10 @@ function main() {
   scene.add(pivot); pivot.add(recoilRig); recoilRig.add(tiltRig);
 
   /* ATTACH: подключение системы модулей */
-  /* Базовая модель строится без съёмных узлов — их даёт система модулей. */
-  const DROP = ['muzzleBrake', 'handguardLower', 'hgFerrule', 'handguardUpper', 'hgFerruleUp',
-    'stock', 'buttPlate', 'buttTrap', 'slingLoop',
-    'magBody', 'magLugFront', 'magLugRear', 'magMouth'];
-  const gun = buildAK74(THREE, { dropParts: DROP });
+  /* Базовая модель строится целиком: съёмные узлы скрываются системой
+     зон только тогда, когда в соответствующий слот поставлен модуль.
+     Благодаря этому снятие модуля возвращает штатную деталь на место. */
+  const gun = buildAK74(THREE, {});
   tiltRig.add(gun);
   const N = gun.nodes, P = gun.parts;
 

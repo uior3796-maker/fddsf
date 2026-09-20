@@ -76,11 +76,10 @@ if (src.indexOf(HOOK) < 0) {
   tiltRig.add(gun);
   const N = gun.nodes, P = gun.parts;`;
   const to = `  ${HOOK}
-  /* Базовая модель строится без съёмных узлов — их даёт система модулей. */
-  const DROP = ['muzzleBrake', 'handguardLower', 'hgFerrule', 'handguardUpper', 'hgFerruleUp',
-    'stock', 'buttPlate', 'buttTrap', 'slingLoop',
-    'magBody', 'magLugFront', 'magLugRear', 'magMouth'];
-  const gun = buildAK74(THREE, { dropParts: DROP });
+  /* Базовая модель строится целиком: съёмные узлы скрываются системой
+     зон только тогда, когда в соответствующий слот поставлен модуль.
+     Благодаря этому снятие модуля возвращает штатную деталь на место. */
+  const gun = buildAK74(THREE, {});
   tiltRig.add(gun);
   const N = gun.nodes, P = gun.parts;
 
