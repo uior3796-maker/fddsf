@@ -48,7 +48,9 @@ const RECIPES = [
     anchor: 'function buildMP5() {',
     after: `weapon.add(toObject(modelRoot));`,
     hostExpr: 'weapon', magExpr: 'reg && reg.magazine',
-    hideGroups: ['magazine', 'stock']
+    /* MP5 задаёт геометрию в миллиметрах и масштабирует группу целиком,
+       поэтому модули тоже идут в мм (scale = 1). */
+    scale: 1
   }
 ];
 
@@ -94,7 +96,7 @@ function attachRebuildWeapon() {
   };
   const asm = __ATTACH.SYS.assemble(weapon, __ATTACH.REG, ATTACH_STATE.config);
   const view = __ATTACH.ADAPTER.build(THREE, asm, {
-    scale: 0.001,
+    scale: ${rec.scale === undefined ? 0.001 : rec.scale},
     parentFor: (slotKey) => (slotKey === 'mag' ? ATTACH_MAGHOST() : null)
   });
   view.root.userData.attachModule = true;

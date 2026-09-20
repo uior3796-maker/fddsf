@@ -4464,10 +4464,12 @@ module.exports = function () {
       muzzle: [{ box: [-18, -20, -505, 18, 20, -425] }],
       mag: [{ group: 'magazine' }]
     },
+    /* MP5: модель авторская в миллиметрах, ствол оканчивается на Z≈-190,
+       цевьё Z -166..-60, приклад уходит в +Z. */
     mp5a3: {
-      handguard: [{ box: [-28, -34, -215, 28, 34, -70] }],
-      stock: [{ box: [-36, -40, 60, 36, 60, 340] }],
-      muzzle: [{ box: [-16, -18, -260, 16, 18, -225] }],
+      handguard: [{ box: [-34, -20, -170, 34, 34, -58] }],
+      stock: [{ box: [-40, -46, 40, 40, 60, 330] }],
+      muzzle: [{ box: [-20, -20, -196, 20, 20, -168] }],
       mag: [{ group: 'magazine' }]
     },
     svd: { muzzle: [{ box: [-18, -20, -600, 18, 20, -545] }] },
@@ -4498,7 +4500,8 @@ module.exports = function () {
      Работает с BufferGeometry three.js: помечает вершины «схлопнутыми»
      (все три в одну точку), поэтому треугольник исчезает без перестройки
      индексов. Исходные координаты сохраняются, чтобы вернуть деталь. */
-  function carveGeometry(THREE, mesh, zones, matrixToWeapon) {
+  function carveGeometry(THREE, mesh, zones, matrixToWeapon, unit) {
+    unit = unit || 1000;
     const geo = mesh.geometry;
     if (!geo || !geo.attributes || !geo.attributes.position) return 0;
     const pos = geo.attributes.position;
@@ -4517,7 +4520,7 @@ module.exports = function () {
       for (let k = 0; k < 3; k++) {
         v.set(orig[o + k * 3], orig[o + k * 3 + 1], orig[o + k * 3 + 2]);
         if (matrixToWeapon) v.applyMatrix4(matrixToWeapon);
-        const x = v.x * 1000, y = v.y * 1000, z = v.z * 1000;
+        const x = v.x * unit, y = v.y * unit, z = v.z * unit;
         for (const zn of zones) if (inBox(zn.box, x, y, z, 1.5)) { inside++; break; }
       }
       /* треугольник убираем, если он целиком внутри зоны */
@@ -4536,10 +4539,11 @@ module.exports = function () {
   }
 
   /* Индексированная геометрия (у некоторых моделей): убираем индексы. */
-  function carveIndexed(THREE, mesh, zones, matrixToWeapon) {
+  function carveIndexed(THREE, mesh, zones, matrixToWeapon, unit) {
+    unit = unit || 1000;
     const geo = mesh.geometry;
     const idx = geo.index;
-    if (!idx) return carveGeometry(THREE, mesh, zones, matrixToWeapon);
+    if (!idx) return carveGeometry(THREE, mesh, zones, matrixToWeapon, unit);
     if (!mesh.userData.__origIdx) mesh.userData.__origIdx = idx.array.slice();
     const orig = mesh.userData.__origIdx;
     const arr = idx.array;
@@ -4554,7 +4558,7 @@ module.exports = function () {
         const vi = orig[t * 3 + k] * 3;
         v.set(pos[vi], pos[vi + 1], pos[vi + 2]);
         if (matrixToWeapon) v.applyMatrix4(matrixToWeapon);
-        for (const zn of zones) if (inBox(zn.box, v.x * 1000, v.y * 1000, v.z * 1000, 1.5)) { inside++; break; }
+        for (const zn of zones) if (inBox(zn.box, v.x * unit, v.y * unit, v.z * unit, 1.5)) { inside++; break; }
       }
       if (inside === 3) {
         arr[t * 3] = arr[t * 3 + 1] = arr[t * 3 + 2] = orig[t * 3];
@@ -4566,8 +4570,13 @@ module.exports = function () {
   }
 
   /* Главная функция: применить скрытие ко всей базовой модели. */
+  /* Во сколько раз координаты модели больше метров: у большинства файлов
+     геометрия в метрах (1), у MP5 — в миллиметрах (0.001 на единицу). */
+  const UNIT = { mp5a3: 1 };
+
   function apply(THREE, host, weaponKey, config, opts) {
     const O = Object.assign({ names: {}, groups: {} }, opts || {});
+    const unit = O.unit !== undefined ? O.unit : (UNIT[weaponKey] !== undefined ? UNIT[weaponKey] : 1000);
     const zones = activeZones(weaponKey, config);
     const byGroup = {};
     for (const z of zones) if (z.group) (byGroup[z.group] = byGroup[z.group] || []).push(z);
@@ -4608,8 +4617,8 @@ module.exports = function () {
       const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
       const own = zones.filter((z) => !z.group && z.box);
       cutTotal += o.geometry && o.geometry.index
-        ? carveIndexed(THREE, o, own, m)
-        : carveGeometry(THREE, o, own, m);
+        ? carveIndexed(THREE, o, own, m, unit)
+        : carveGeometry(THREE, o, own, m, unit);
     });
 
     return { zones: zones.length, cut: cutTotal, hidden };
@@ -5280,15 +5289,16 @@ module.exports = {
       mobility: 112, reloadTime: 2.35, muzzleVelocity: 400, effectiveRange: 180,
       loudness: 92, magCap: 30 },
     slots: [
-      { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 0, -232], rot: [0, 0, 0],
+      /* координаты по обмеру модели: дуло -190, цевьё -166..-60, ось 0 */
+      { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 0, -188], rot: [0, 0, 0],
         accepts: ['muzzle'], order: 0, group: 'body' },
-      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 0, -110], rot: [0, 0, 0],
+      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 0, -62], rot: [0, 0, 0],
         accepts: ['handguard'], length: 200, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 38, -40], rot: [0, 0, 0],
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 40, -30], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -24, -96], rot: [0, 0, 0],
+      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -14, -96], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 6, 108], rot: [0, 0, 0],
+      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 4, 40], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'thread_cap', mag: 'mag_pistol_33', stock: 'stock_telescopic' }

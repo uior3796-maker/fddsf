@@ -97,15 +97,16 @@ module.exports = {
       mobility: 112, reloadTime: 2.35, muzzleVelocity: 400, effectiveRange: 180,
       loudness: 92, magCap: 30 },
     slots: [
-      { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 0, -232], rot: [0, 0, 0],
+      /* координаты по обмеру модели: дуло -190, цевьё -166..-60, ось 0 */
+      { key: 'muzzle', label: 'ДУЛО', type: 'thread', pos: [0, 0, -188], rot: [0, 0, 0],
         accepts: ['muzzle'], order: 0, group: 'body' },
-      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 0, -110], rot: [0, 0, 0],
+      { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 0, -62], rot: [0, 0, 0],
         accepts: ['handguard'], length: 200, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 38, -40], rot: [0, 0, 0],
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 40, -30], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -24, -96], rot: [0, 0, 0],
+      { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, -14, -96], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
-      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 6, 108], rot: [0, 0, 0],
+      { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 4, 40], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'thread_cap', mag: 'mag_pistol_33', stock: 'stock_telescopic' }
