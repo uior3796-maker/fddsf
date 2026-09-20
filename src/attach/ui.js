@@ -5,26 +5,63 @@
    ========================================================================== */
 module.exports = function () {
   const CSS = `
-#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8eaed;pointer-events:none;letter-spacing:.06em}
+/* Панель кастомизации. Системный шрифт, широкие поля, никаких наложений:
+   слоты — сетка фиксированной ширины, список модулей — горизонтальная лента
+   с прокруткой, а не перенос в несколько рядов. */
+#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;pointer-events:none;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Arial,sans-serif}
 #cust.hidden{display:none}
-#custSlots{display:flex;gap:6px;justify-content:center;padding:0 10px 10px;flex-wrap:wrap;pointer-events:auto}
-.cslot{min-width:104px;border:1px solid rgba(255,255,255,.16);background:rgba(12,14,17,.72);backdrop-filter:blur(12px);padding:7px 10px;cursor:pointer;transition:border-color .15s,background .15s}
-.cslot:hover{background:rgba(26,30,36,.82)}
-.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.16)}
-.cslot .k{font-size:9.5px;color:rgba(255,255,255,.42);text-transform:uppercase}
-.cslot .v{font-size:12px;color:#fff;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
-#custList{display:flex;gap:6px;justify-content:center;padding:0 10px 8px;flex-wrap:wrap;pointer-events:auto}
-.copt{border:1px solid rgba(255,255,255,.14);background:rgba(12,14,17,.66);padding:6px 11px;cursor:pointer;font-size:11.5px}
-.copt:hover{background:rgba(26,30,36,.8)}
-.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.14)}
-.copt.bad{opacity:.42;border-style:dashed}
-#custStats{position:fixed;left:18px;top:86px;z-index:20;font:500 11px/1.7 ui-monospace,Menlo,monospace;pointer-events:none;min-width:190px}
-.cstat{display:flex;justify-content:space-between;gap:14px;padding:1px 7px;background:rgba(10,12,15,.55);border-left:2px solid rgba(255,255,255,.16)}
-.cstat.up{border-left-color:#6fcf7f;color:#a9e6b3}
-.cstat.dn{border-left-color:#e07a6a;color:#efa99b}
-.cstat b{font-weight:600}
-#custHint{text-align:center;padding-bottom:9px;color:rgba(255,255,255,.34);font-size:10.5px}
-#custWarn{text-align:center;color:#e6b07a;font-size:10.5px;padding-bottom:5px;min-height:14px}
+#cust *{box-sizing:border-box}
+
+#custSlots{display:flex;gap:8px;justify-content:center;align-items:stretch;
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom));pointer-events:auto;
+  overflow-x:auto;scrollbar-width:none}
+#custSlots::-webkit-scrollbar{display:none}
+.cslot{flex:0 0 auto;width:132px;min-height:54px;border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;background:rgba(14,16,19,.88);backdrop-filter:blur(14px);
+  padding:8px 11px;cursor:pointer;transition:border-color .14s,background .14s;
+  display:flex;flex-direction:column;justify-content:center;gap:4px}
+.cslot:hover{background:rgba(30,34,40,.92);border-color:rgba(255,255,255,.26)}
+.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.18)}
+.cslot .k{font-size:10px;line-height:1.1;letter-spacing:.09em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cslot .v{font-size:13px;line-height:1.25;color:#fff;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.cslot.empty .v{color:rgba(255,255,255,.34)}
+
+#custList{display:flex;gap:7px;justify-content:flex-start;padding:0 16px 10px;
+  pointer-events:auto;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+#custList::-webkit-scrollbar{display:none}
+#custList:empty{display:none}
+.copt{flex:0 0 auto;border:1px solid rgba(255,255,255,.14);border-radius:7px;
+  background:rgba(14,16,19,.86);padding:9px 14px;cursor:pointer;font-size:12.5px;
+  line-height:1.2;color:#dfe3e8;white-space:nowrap;transition:background .14s,border-color .14s}
+.copt:hover{background:rgba(32,36,42,.94)}
+.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.16)}
+.copt.bad{opacity:.38;border-style:dashed;cursor:not-allowed}
+
+#custStats{position:fixed;left:18px;top:84px;z-index:20;pointer-events:none;
+  width:238px;display:flex;flex-direction:column;gap:2px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif}
+.cstat{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding:4px 10px;border-radius:5px;background:rgba(10,12,15,.78);
+  border-left:2px solid rgba(255,255,255,.18);font-size:11.5px;line-height:1.35}
+.cstat span{color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cstat b{font-weight:600;font-variant-numeric:tabular-nums;color:#f0f2f5;white-space:nowrap}
+.cstat.up{border-left-color:#63c97a}
+.cstat.up b{color:#96e6a6}
+.cstat.dn{border-left-color:#e07a6a}
+.cstat.dn b{color:#f0a598}
+.cstat i{font-style:normal;font-size:10px;margin-left:5px;opacity:.85}
+
+#custHint{text-align:center;padding:0 16px 10px;font-size:11px;line-height:1.5;
+  color:rgba(255,255,255,.34);letter-spacing:.02em}
+#custWarn{text-align:center;padding:0 16px 6px;font-size:11.5px;line-height:1.45;
+  color:#e8b45c;min-height:16px}
+@media (max-width:760px){
+  .cslot{width:112px}
+  #custStats{width:190px;top:70px;left:10px}
+}
 `;
 
   /* Подписи и порядок показа характеристик. up=true — больше значит лучше. */
@@ -60,51 +97,85 @@ function createCustomizer(opts) {
   const list = document.createElement('div'); list.id = 'custList';
   const slots = document.createElement('div'); slots.id = 'custSlots';
   const hint = document.createElement('div'); hint.id = 'custHint';
-  hint.textContent = 'TAB — кастомизация · ← → выбор модуля · 1…9 слот · B — сошки/приклад · L — фонарь · K — ЛЦУ';
+  hint.textContent = 'TAB — панель · 1…9 — слот · ← → — модуль · B — сошки/приклад · L — фонарь · K — ЛЦУ';
   host.append(warn, list, slots, hint);
   document.body.appendChild(host);
 
   const statBox = document.createElement('div'); statBox.id = 'custStats';
   document.body.appendChild(statBox);
 
-  let active = null, prevStats = null;
+  let active = null, prevStats = null, flash = {};
 
-  function render() {
-    const cfg = opts.getConfig(), defs = opts.getSlots();
+  function renderSlots(defs, cfg) {
     slots.innerHTML = '';
-    for (const s of defs) {
-      const el = document.createElement('div');
-      el.className = 'cslot' + (active === s.key ? ' on' : '');
+    defs.forEach((s, i) => {
       const cur = cfg[s.key];
-      el.innerHTML = '<div class="k">' + s.label + '</div><div class="v">' +
-        (cur ? opts.nameOf(cur) : '—') + '</div>';
+      const el = document.createElement('div');
+      el.className = 'cslot' + (active === s.key ? ' on' : '') + (cur ? '' : ' empty');
+      const k = document.createElement('div'); k.className = 'k';
+      k.textContent = (i < 9 ? (i + 1) + ' · ' : '') + s.label;
+      const v = document.createElement('div'); v.className = 'v';
+      v.textContent = cur ? opts.nameOf(cur) : '—';
+      v.title = v.textContent;
+      el.append(k, v);
       el.onclick = () => { active = s.key; render(); };
       slots.appendChild(el);
-    }
+      if (active === s.key) requestAnimationFrame(() => {
+        el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+    });
+  }
+
+  function renderOptions(cfg) {
     list.innerHTML = '';
-    if (active) {
-      const slot = defs.find((s) => s.key === active);
-      const options = opts.optionsFor(active);
-      for (const o of options) {
-        const el = document.createElement('div');
-        el.className = 'copt' + (cfg[active] === o.key ? ' sel' : '') + (o.fits === false ? ' bad' : '');
-        el.textContent = o.label;
-        el.onclick = () => { opts.setModule(active, o.key); render(); };
-        list.appendChild(el);
-      }
+    if (!active) return;
+    let selected = null;
+    for (const o of opts.optionsFor(active)) {
+      const el = document.createElement('div');
+      const isSel = (cfg[active] || null) === o.key;
+      el.className = 'copt' + (isSel ? ' sel' : '') + (o.fits === false ? ' bad' : '');
+      el.textContent = o.label;
+      el.title = o.fits === false ? 'Не подходит этому слоту' : o.label;
+      el.onclick = () => { if (o.fits !== false) { opts.setModule(active, o.key); render(); } };
+      list.appendChild(el);
+      if (isSel) selected = el;
     }
+    if (selected) requestAnimationFrame(() => {
+      selected.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+  }
+
+  function renderStats() {
     const st = opts.getStats();
     statBox.innerHTML = '';
     for (const d of STAT_DEFS) {
       if (st[d.k] === undefined) continue;
-      const v = st[d.k], pv = prevStats ? prevStats[d.k] : v;
+      const v = st[d.k], pv = prevStats ? prevStats[d.k] : undefined;
+      const changed = pv !== undefined && Math.abs(v - pv) > 1e-6;
       let cls = 'cstat';
-      if (pv !== undefined && Math.abs(v - pv) > 1e-6) cls += ((v > pv) === d.up) ? ' up' : ' dn';
+      if (changed) cls += ((v > pv) === d.up) ? ' up' : ' dn';
       const row = document.createElement('div');
       row.className = cls;
-      row.innerHTML = '<span>' + d.label + '</span><b>' + v.toFixed(d.d) + '</b>';
+      const name = document.createElement('span'); name.textContent = d.label;
+      const val = document.createElement('b');
+      val.textContent = v.toFixed(d.d);
+      if (changed) {
+        const diff = document.createElement('i');
+        const delta = v - pv;
+        diff.textContent = (delta > 0 ? '▲' : '▼') + Math.abs(delta).toFixed(d.d);
+        val.appendChild(diff);
+      }
+      row.append(name, val);
       statBox.appendChild(row);
     }
+  }
+
+  function render() {
+    const cfg = opts.getConfig(), defs = opts.getSlots();
+    if (active && !defs.some((s) => s.key === active)) active = null;
+    renderSlots(defs, cfg);
+    renderOptions(cfg);
+    renderStats();
     const w = opts.getWarnings();
     warn.textContent = w && w.length ? w.join(' · ') : '';
   }
@@ -114,7 +185,12 @@ function createCustomizer(opts) {
     markStats() { prevStats = Object.assign({}, opts.getStats()); },
     setActive(k) { active = k; render(); },
     getActive() { return active; },
-    toggle(on) { host.classList.toggle('hidden', on === false); statBox.style.display = on === false ? 'none' : ''; },
+    toggle(on) {
+      const show = on !== false;
+      host.classList.toggle('hidden', !show);
+      statBox.style.display = show ? '' : 'none';
+      if (show) render();
+    },
     visible() { return !host.classList.contains('hidden'); }
   };
 }

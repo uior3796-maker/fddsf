@@ -17,9 +17,17 @@ const RECIPES = [
     anchor: 'function buildAKM(THREE, opts = {}) {',
     after: `\tconst akm = buildAKM(THREE, {})\n\trig.add(akm)`,
     hostExpr: 'akm', magExpr: 'akm.parts && akm.parts.magazine',
-    /* эти узлы базовой модели заменяются модулями и скрываются */
-    hide: ['stock', 'buttPlate', 'buttSerration', 'swivelRearBase', 'magBody', 'magLips',
-      'magFloor', 'magCatchLug', 'handguard', 'handguardLower', 'handguardUpper']
+    hideByName: {
+      stock: 'stock', buttPlate: 'stock', buttSerration: 'stock', buttScrew: 'stock',
+      swivelRear: 'stock', swivelRearBase: 'stock',
+      magBody: 'mag', magLips: 'mag', magFloor: 'mag', magCatchLug: 'mag',
+      lowerHandguard: 'handguard', handguardBand: 'handguard', handguardBandRear: 'handguard',
+      upperHandguardTop: 'handguard', upperHandguardR: 'handguard', upperHandguardL: 'handguard',
+      upperBand: 'handguard',
+      brakeBase: 'muzzle', brakeWindow: 'muzzle', brakeCrown: 'muzzle', brakeDetent: 'muzzle',
+      dustCover: 'mount', coverNose: 'mount',
+      sideRail: 'siderail', railTop: 'siderail', railBot: 'siderail'
+    }
   },
   {
     file: 'm416.html', key: 'm416',
@@ -40,7 +48,9 @@ const RECIPES = [
     anchor: 'function buildMP5() {',
     after: `weapon.add(toObject(modelRoot));`,
     hostExpr: 'weapon', magExpr: 'reg && reg.magazine',
-    hideGroups: ['magazine', 'stock']
+    /* MP5 задаёт геометрию в миллиметрах и масштабирует группу целиком,
+       поэтому модули тоже идут в мм (scale = 1). */
+    scale: 1
   }
 ];
 
@@ -50,7 +60,7 @@ function patchFile(rec) {
   const BEG = '/* ATTACH:BEGIN ' + rec.key + ' */', END = '/* ATTACH:END ' + rec.key + ' */';
 
   /* 1) бандл + интеграция */
-  const block = B.bundle() + '\n' + B.integration(rec.key, {});
+  const block = B.bundle() + '\n' + B.integration(rec.key, { hideByName: rec.hideByName || {} });
   const payload = BEG + '\n' + block + '\n' + END;
   const i = src.indexOf(BEG), j = src.indexOf(END);
   if (i >= 0 && j > i) src = src.slice(0, i) + payload + src.slice(j + END.length);
@@ -70,22 +80,7 @@ function patchFile(rec) {
 
 ${HOOK}
 const ATTACH_HOST = ${rec.hostExpr};
-/* Скрыть детали базовой модели, которые заменяет модуль этого слота. */
-const ATTACH_HIDE_NAMES = ${JSON.stringify(rec.hide || [])};
-const ATTACH_HIDE_GROUPS = ${JSON.stringify(rec.hideGroups || [])};
-function attachHideBase() {
-  const names = new Set(ATTACH_HIDE_NAMES);
-  const groups = new Set(ATTACH_HIDE_GROUPS);
-  ATTACH_HOST.traverse((o) => {
-    if (o.userData && o.userData.attachModule) return;
-    if (names.has(o.name) || groups.has(o.name)) o.visible = false;
-  });
-  for (const gk of ATTACH_HIDE_GROUPS) {
-    const src = (typeof parts !== 'undefined' && parts && parts[gk]) ||
-      (typeof reg !== 'undefined' && reg && reg[gk]) || null;
-    if (src && src.visible !== undefined) src.visible = false;
-  }
-}
+window.__MEASURE_HOST = ATTACH_HOST; window.__MEASURE_THREE = THREE;
 const ATTACH_MAGHOST = () => (${rec.magExpr}) || null;
 let ATTACH_ASM = attachRebuildWeapon();
 
@@ -101,14 +96,14 @@ function attachRebuildWeapon() {
   };
   const asm = __ATTACH.SYS.assemble(weapon, __ATTACH.REG, ATTACH_STATE.config);
   const view = __ATTACH.ADAPTER.build(THREE, asm, {
-    scale: 0.001,
+    scale: ${rec.scale === undefined ? 0.001 : rec.scale},
     parentFor: (slotKey) => (slotKey === 'mag' ? ATTACH_MAGHOST() : null)
   });
   view.root.userData.attachModule = true;
   view.root.traverse((o) => { o.userData.attachModule = true; });
   ATTACH_HOST.add(view.root);
-  attachHideBase();
   ATTACH_STATE.asm = asm;
+  attachOcclude(THREE, ATTACH_HOST);
   ATTACH_STATE.view = view;
   view.setBeam('light', ATTACH_STATE.toggles.light);
   view.setBeam('laser', ATTACH_STATE.toggles.laser);

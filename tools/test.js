@@ -80,12 +80,20 @@ console.log('3. Влияние модулей на характеристики'
   ok(supp.derived.flashVisible < bare.derived.flashVisible, 'Глушитель должен прятать вспышку');
   ok(supp.derived.adsTime > bare.derived.adsTime, 'Глушитель должен замедлять вскидку');
 
-  const noOptic = SYS.assemble(weapon, REG, Object.assign({}, d.defaults, { optic: null }));
-  const scoped = SYS.assemble(weapon, REG, Object.assign({}, d.defaults, { optic: 'scope_1_6x' }));
+  /* На АК прицел ставится через кронштейн: сначала крышка с планкой,
+     затем в её дочерний слот — оптика. */
+  const noOptic = SYS.assemble(weapon, REG, Object.assign({}, d.defaults, { mount: null }));
+  const scoped = SYS.assemble(weapon, REG, Object.assign({}, d.defaults,
+    { mount: 'mount_dustcover', 'mount.top': 'scope_1_6x' }));
+  ok(!!scoped.modules['mount.top'], 'Кронштейн должен давать слот под прицел');
   ok(scoped.derived.adsTime > noOptic.derived.adsTime, 'Кратный прицел должен замедлять вскидку');
   ok(scoped.derived.precision > noOptic.derived.precision, 'Прицел должен повышать точность');
   ok(!!scoped.nodes.eye, 'Прицел должен задавать точку глаза');
   ok(!!scoped.activeOptic, 'Прицел должен становиться активным');
+
+  /* Прицел без кронштейна на АК поставить нельзя — слота просто нет. */
+  const noMount = SYS.assemble(weapon, REG, Object.assign({}, d.defaults, { mount: null }));
+  ok(!noMount.modules['mount.top'], 'Без кронштейна слота под прицел быть не должно');
 
   const drum = SYS.assemble(weapon, REG, Object.assign({}, d.defaults, { mag: 'mag_drum_75' }));
   ok(drum.derived.magCap === 75, 'Барабан должен давать 75 патронов');

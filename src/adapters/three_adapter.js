@@ -78,6 +78,9 @@ module.exports = function (G, C) {
       if (!slotGroups[slot]) {
         const g = new THREE.Group();
         g.name = 'slot:' + slot;
+        /* пометка нужна системе скрытия: детали модулей она не трогает,
+           даже если слот живёт в чужой группе (магазин, затвор) */
+        g.userData.attachModule = true;
         /* хост может увести слот в свою анимируемую группу (магазин, затвор) */
         let host = O.parentFor && O.parentFor(slot);
         if (host && typeof host.add !== 'function') host = host.group || host.obj || null;
@@ -86,7 +89,11 @@ module.exports = function (G, C) {
       }
       const key = slot + '|' + anim;
       if (!animGroups[key]) {
-        const g = new THREE.Group(); g.name = anim; slotGroups[slot].add(g); animGroups[key] = g;
+        const g = new THREE.Group();
+        g.name = anim;
+        g.userData.attachModule = true;
+        slotGroups[slot].add(g);
+        animGroups[key] = g;
       }
       return animGroups[key];
     };
@@ -96,6 +103,7 @@ module.exports = function (G, C) {
       const b = buckets[k];
       const mesh = new THREE.Mesh(toGeo(G.merge(b.list)), mkMat(b.mat, b.name));
       mesh.name = k;
+      mesh.userData.attachModule = true;
       mesh.castShadow = O.shadows;
       mesh.receiveShadow = O.shadows;
       groupFor(b.grp, b.anim).add(mesh);
@@ -222,9 +230,20 @@ module.exports = function (G, C) {
         g.quaternion.copy(q);
       },
 
+      /* Полное снятие сборки со сцены.
+         Важно: группы слотов могут висеть не на root, а в анимируемых ригах
+         оружия (магазин, затвор). Если удалять только root, такие группы
+         остаются в сцене и новые модули накладываются на старые. */
       dispose() {
+        for (const k in slotGroups) {
+          const g = slotGroups[k];
+          if (g.parent) g.parent.remove(g);
+        }
+        if (root.parent) root.parent.remove(root);
+        for (const b of beams) if (b.anchor && b.anchor.parent) b.anchor.parent.remove(b.anchor);
         for (const g of geos) g.dispose();
         for (const m of mats) m.dispose();
+        geos.length = 0; mats.length = 0;
       }
     };
 
