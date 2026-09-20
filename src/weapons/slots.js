@@ -20,17 +20,22 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -300], rot: [0, 0, 0],
         accepts: ['handguard'], length: 240, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 122, -196], rot: [0, 0, 0],
-        accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 96, -150], rot: [0, 0, 0],
-        accepts: ['sidemount'], order: 1, group: 'body' },
+      /* Прицел ставится не напрямую, а через кронштейн: крышка с планкой
+         садится на коробку (верх коробки y≈100, длина крышки 200 мм назад
+         от колодки), боковой — на «ласточкин хвост» слева. */
+      { key: 'mount', label: 'КРОНШТЕЙН', type: 'mount', pos: [0, 98, -8], rot: [0, 0, 0],
+        accepts: ['mount'], order: 1, group: 'body' },
+      /* планка крепится на левую щеку цевья: наружная стенка x=-21,
+         поэтому посадка чуть дальше и развёрнута наружу (+90° по Z) */
+      { key: 'siderail', label: 'БОК. ПЛАНКА', type: 'rail', pos: [-22, 78, -400],
+        rot: [0, 0, Math.PI / 2], accepts: ['siderail'], length: 90, order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -122], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
       { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 6], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'brake_ak', handguard: 'handguard_wood', mag: 'mag_ak_30',
-      stock: 'stock_wood', optic: null, sidemount: null }
+      stock: 'stock_wood' }
   },
 
   /* ---------------------------------------------------------------- АКМ */
@@ -45,10 +50,10 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -290], rot: [0, 0, 0],
         accepts: ['handguard'], length: 220, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 120, -192], rot: [0, 0, 0],
-        accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 95, -148], rot: [0, 0, 0],
-        accepts: ['sidemount'], order: 1, group: 'body' },
+      { key: 'mount', label: 'КРОНШТЕЙН', type: 'mount', pos: [0, 97, -10], rot: [0, 0, 0],
+        accepts: ['mount'], order: 1, group: 'body' },
+      { key: 'siderail', label: 'БОК. ПЛАНКА', type: 'rail', pos: [-25, 54, -380],
+        rot: [0, 0, Math.PI / 2], accepts: ['siderail'], length: 90, order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -120], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
       { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 8], rot: [0, 0, 0],
@@ -71,7 +76,8 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -110], rot: [0, 0, 0],
         accepts: ['handguard'], length: 260, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -60], rot: [0, 0, 0],
+      /* штатная планка ресивера: верх на y=104 (98 + 6 высоты основания) */
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -10], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 170, order: 2, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 52, -92], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },

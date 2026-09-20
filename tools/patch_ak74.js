@@ -8,7 +8,17 @@ const FILE = path.join(B.BOX, 'ak74.html');
 let src = fs.readFileSync(FILE, 'utf8');
 
 /* --- 1. Бандл + интеграция вставляются перед функцией buildAK74 --- */
-const block = B.bundle() + '\n' + B.integration('ak74', {});
+const block = B.bundle() + '\n' + B.integration('ak74', {
+  /* детали, собираемые отдельными мешами — их проще скрыть по имени */
+  hideByName: {
+    muzzleBrake: 'muzzle',
+    handguardLower: 'handguard', hgFerrule: 'handguard',
+    handguardUpper: 'handguard', hgFerruleUp: 'handguard',
+    stock: 'stock', buttPlate: 'stock', buttTrap: 'stock', slingLoop: 'stock',
+    magBody: 'mag', magLugFront: 'mag', magLugRear: 'mag', magMouth: 'mag', magTopRound: 'mag',
+    dustCover: 'mount'
+  }
+});
 const BEG = '/* ATTACH:BEGIN ak74 */', END = '/* ATTACH:END ak74 */';
 const payload = BEG + '\n' + block + '\n' + END;
 
@@ -90,9 +100,11 @@ if (src.indexOf(HOOK) < 0) {
     };
     const asm = __ATTACH.SYS.assemble(weapon, __ATTACH.REG, ATTACH_STATE.config);
     const view = __ATTACH.ADAPTER.build(THREE, asm, { scale: 0.001, parentFor: ATTACH_PARENT });
+    view.root.traverse((o) => { o.userData.attachModule = true; });
     gun.add(view.root);
     ATTACH_STATE.asm = asm;
     ATTACH_STATE.view = view;
+    attachOcclude(THREE, gun);
     view.setBeam('light', ATTACH_STATE.toggles.light);
     view.setBeam('laser', ATTACH_STATE.toggles.laser);
     view.setBeam('ir', ATTACH_STATE.toggles.ir);
@@ -174,6 +186,7 @@ if (src.indexOf(HOOK4) < 0) {
   });
   ATTACH_STATE.ui.render();
   ATTACH_STATE.ui.toggle(false);
+  window.__MEASURE_HOST = gun; window.__MEASURE_THREE = THREE;
   window.__ATTACH_DEBUG = () => ({
     magGroup: (function () {
       const g = ATTACH_STATE.view.slots.mag;

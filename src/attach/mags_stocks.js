@@ -548,6 +548,108 @@ module.exports = function (G, C) {
       stats: { vertRecoil: -6, adsSpeed: -3, mobility: -4, ergonomics: 8 } } };
   };
 
+
+  /* ==================================================================
+     ОПТИЧЕСКИЕ КРОНШТЕЙНЫ (OPTIC MOUNT)
+
+     Отдельный слот-переходник: на АК прицел нельзя поставить напрямую,
+     сначала ставится кронштейн, и уже он даёт планку под оптику.
+     Каждый кронштейн объявляет rails.top — система подхватывает её как
+     дочерний слот и предлагает туда прицелы.
+     ================================================================== */
+
+  /* Крышка ствольной коробки с планкой (самый частый вариант на АК) */
+  OUT.mount_dustcover = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const L = 200, W = 36, H = 26;           // габариты крышки
+    const RAIL_Y = H + 4.6;
+
+    /* корпус крышки: арочный профиль с рёбрами жёсткости */
+    const arch = [];
+    for (let k = 0; k <= 16; k++) {
+      const a = PI * (k / 16);
+      arch.push([Math.cos(a) * (W / 2), Math.sin(a) * H * 0.92]);
+    }
+    arch.push([-W / 2, -2], [W / 2, -2]);
+    P.add('cover', O.mat, extrude(G.round(arch, 1.2), { z0: -L, z1: 0, ch: 0.5 }));
+    for (let i = 0; i < 5; i++)
+      P.add('coverRib', O.mat, boxC(0, H * 0.5, -18 - i * 40, W + 0.8, H * 0.7, 3.0, 1.0, 0.2));
+
+    /* передний зацеп и задняя защёлка — то, чем крышка держится */
+    P.add('frontLug', 'steelDk', boxC(0, 6.0, -L + 4, W - 6, 8.0, 10, 1.0, 0.3));
+    P.add('rearLatch', 'steelDk', boxC(0, 8.0, -6, 14, 12.0, 12, 1.2, 0.3));
+    P.add('latchSpring', 'steel', tr(spring(3.0, 0.6, 0, 9, 5), 0, 12.0, -10));
+
+    /* планка Пикатинни сверху, на всю длину крышки */
+    P.add('rail', O.mat, tr(railStrip(L - 16, -8, 5.2, 4.2), 0, RAIL_Y, 0));
+    /* усиленные боковые щёки — крышка с планкой не «гуляет» */
+    for (const s of [-1, 1])
+      P.add('sideWall', O.mat, boxC(s * (W / 2 - 1.2), H * 0.45, -L / 2, 2.4, H * 0.8, L - 20, 1.0, 0.3));
+
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Крышка с планкой', short: 'КРЫШКА', weight: 240,
+      rails: { top: { pos: [0, RAIL_Y, -8], rot: [0, 0, 0], len: L - 16, accepts: ['optic', 'magnifier'] } },
+      stats: { adsSpeed: -1, ergonomics: 4 } } };
+  };
+
+  /* Боковой кронштейн-переходник на «ласточкин хвост» АК */
+  OUT.mount_side = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const RAIL_Y = 58;                        // планка над осью канала ствола
+
+    /* зажим на боковую планку: скоба + прижимной рычаг */
+    P.add('clampPlate', O.mat, boxC(0, 14, 0, 10, 40, 78, 2.4, 0.5));
+    P.add('dovetailJaw', 'steelDk', tr(rz(boxC(0, 0, 0, 8, 11, 74, 1.0, 0.3), D(6)), -4.0, 2.0, 0));
+    P.add('lever', 'steel', tr(cylX(4.2, 4.2, -17, -7, 18), 0, 8.0, 24));
+    P.add('leverArm', O.mat, boxC(-14.0, 22.0, 24, 5.0, 30.0, 8.0, 1.6, 0.3));
+    P.add('leverSpring', 'steel', tr(spring(3.0, 0.6, 0, 8, 5), -10.0, 8.0, 12));
+
+    /* вынос вверх и вперёд — прицел встаёт над ствольной коробкой */
+    P.add('arm', O.mat, boxC(6.0, RAIL_Y - 14, -6, 22, 26, 68, 2.4, 0.5));
+    P.add('armRib', O.mat, boxC(6.0, RAIL_Y - 24, -6, 10, 14, 64, 1.4, 0.3));
+    P.add('rail', O.mat, tr(railStrip(84, 34, 5.2, 4.2), 0, RAIL_Y, 0));
+
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Боковой кронштейн', short: 'БОК', weight: 290,
+      rails: { top: { pos: [0, RAIL_Y, 34], rot: [0, 0, 0], len: 84, accepts: ['optic', 'magnifier'] } },
+      stats: { adsSpeed: -2, mobility: -1, ergonomics: 2 } } };
+  };
+
+  /* Низкий переходник: просто планка поверх штатной колодки прицела */
+  OUT.mount_rearsight = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const RAIL_Y = 12.4;
+    P.add('base', O.mat, boxC(0, 4.0, 0, 24, 8.0, 64, 2.0, 0.4));
+    for (const s of [-1, 1])
+      P.add('clawJaw', 'steelDk', boxC(s * 11.0, 1.0, 0, 4.0, 10.0, 56, 1.0, 0.3));
+    for (const z of [-20, 20])
+      P.add('clampScrew', 'steel', tr(rx(capScrew(3.4, 9, 1.6), PI), 11.0, -2.0, z));
+    P.add('rail', O.mat, tr(railStrip(60, -2, 5.0, 4.2), 0, RAIL_Y, 0));
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Низкий переходник', short: 'НИЗКИЙ', weight: 90,
+      rails: { top: { pos: [0, RAIL_Y, -2], rot: [0, 0, 0], len: 60, accepts: ['optic'] } },
+      stats: { adsSpeed: 1, ergonomics: 1 } } };
+  };
+
+  /* Боковая планка под фонарь/ЛЦУ (SIDERAIL) — вешается на цевьё */
+  OUT.siderail_short = function (o) {
+    const O = Object.assign({ mat: 'anod', len: 76 }, o || {});
+    const P = bag();
+    const L = O.len;
+    P.add('base', O.mat, boxC(0, 3.0, 0, 22, 6.0, L, 1.8, 0.4));
+    P.add('rail', O.mat, tr(railStrip(L - 8, (L - 8) / 2, 5.0, 4.2), 0, 9.6, 0));
+    for (const z of [-L / 2 + 12, L / 2 - 12])
+      P.add('screw', 'steel', tr(rx(capScrew(3.0, 7, 1.4), PI), 0, 0.5, z));
+    return { parts: P.list, meta: {
+      slot: 'siderail', name: 'Боковая планка', short: 'ПЛАНКА', weight: 58, len: L,
+      rails: { top: { pos: [0, 9.6, (L - 8) / 2], rot: [0, 0, 0], len: L - 8,
+        accepts: ['tactical'] } },
+      stats: { mobility: -1, ergonomics: 2 } } };
+  };
+
   /* ==================================================================
      Боковые модули и мелочи
      ================================================================== */

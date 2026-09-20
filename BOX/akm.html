@@ -2544,6 +2544,108 @@ module.exports = function (G, C) {
       stats: { vertRecoil: -6, adsSpeed: -3, mobility: -4, ergonomics: 8 } } };
   };
 
+
+  /* ==================================================================
+     ОПТИЧЕСКИЕ КРОНШТЕЙНЫ (OPTIC MOUNT)
+
+     Отдельный слот-переходник: на АК прицел нельзя поставить напрямую,
+     сначала ставится кронштейн, и уже он даёт планку под оптику.
+     Каждый кронштейн объявляет rails.top — система подхватывает её как
+     дочерний слот и предлагает туда прицелы.
+     ================================================================== */
+
+  /* Крышка ствольной коробки с планкой (самый частый вариант на АК) */
+  OUT.mount_dustcover = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const L = 200, W = 36, H = 26;           // габариты крышки
+    const RAIL_Y = H + 4.6;
+
+    /* корпус крышки: арочный профиль с рёбрами жёсткости */
+    const arch = [];
+    for (let k = 0; k <= 16; k++) {
+      const a = PI * (k / 16);
+      arch.push([Math.cos(a) * (W / 2), Math.sin(a) * H * 0.92]);
+    }
+    arch.push([-W / 2, -2], [W / 2, -2]);
+    P.add('cover', O.mat, extrude(G.round(arch, 1.2), { z0: -L, z1: 0, ch: 0.5 }));
+    for (let i = 0; i < 5; i++)
+      P.add('coverRib', O.mat, boxC(0, H * 0.5, -18 - i * 40, W + 0.8, H * 0.7, 3.0, 1.0, 0.2));
+
+    /* передний зацеп и задняя защёлка — то, чем крышка держится */
+    P.add('frontLug', 'steelDk', boxC(0, 6.0, -L + 4, W - 6, 8.0, 10, 1.0, 0.3));
+    P.add('rearLatch', 'steelDk', boxC(0, 8.0, -6, 14, 12.0, 12, 1.2, 0.3));
+    P.add('latchSpring', 'steel', tr(spring(3.0, 0.6, 0, 9, 5), 0, 12.0, -10));
+
+    /* планка Пикатинни сверху, на всю длину крышки */
+    P.add('rail', O.mat, tr(railStrip(L - 16, -8, 5.2, 4.2), 0, RAIL_Y, 0));
+    /* усиленные боковые щёки — крышка с планкой не «гуляет» */
+    for (const s of [-1, 1])
+      P.add('sideWall', O.mat, boxC(s * (W / 2 - 1.2), H * 0.45, -L / 2, 2.4, H * 0.8, L - 20, 1.0, 0.3));
+
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Крышка с планкой', short: 'КРЫШКА', weight: 240,
+      rails: { top: { pos: [0, RAIL_Y, -8], rot: [0, 0, 0], len: L - 16, accepts: ['optic', 'magnifier'] } },
+      stats: { adsSpeed: -1, ergonomics: 4 } } };
+  };
+
+  /* Боковой кронштейн-переходник на «ласточкин хвост» АК */
+  OUT.mount_side = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const RAIL_Y = 58;                        // планка над осью канала ствола
+
+    /* зажим на боковую планку: скоба + прижимной рычаг */
+    P.add('clampPlate', O.mat, boxC(0, 14, 0, 10, 40, 78, 2.4, 0.5));
+    P.add('dovetailJaw', 'steelDk', tr(rz(boxC(0, 0, 0, 8, 11, 74, 1.0, 0.3), D(6)), -4.0, 2.0, 0));
+    P.add('lever', 'steel', tr(cylX(4.2, 4.2, -17, -7, 18), 0, 8.0, 24));
+    P.add('leverArm', O.mat, boxC(-14.0, 22.0, 24, 5.0, 30.0, 8.0, 1.6, 0.3));
+    P.add('leverSpring', 'steel', tr(spring(3.0, 0.6, 0, 8, 5), -10.0, 8.0, 12));
+
+    /* вынос вверх и вперёд — прицел встаёт над ствольной коробкой */
+    P.add('arm', O.mat, boxC(6.0, RAIL_Y - 14, -6, 22, 26, 68, 2.4, 0.5));
+    P.add('armRib', O.mat, boxC(6.0, RAIL_Y - 24, -6, 10, 14, 64, 1.4, 0.3));
+    P.add('rail', O.mat, tr(railStrip(84, 34, 5.2, 4.2), 0, RAIL_Y, 0));
+
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Боковой кронштейн', short: 'БОК', weight: 290,
+      rails: { top: { pos: [0, RAIL_Y, 34], rot: [0, 0, 0], len: 84, accepts: ['optic', 'magnifier'] } },
+      stats: { adsSpeed: -2, mobility: -1, ergonomics: 2 } } };
+  };
+
+  /* Низкий переходник: просто планка поверх штатной колодки прицела */
+  OUT.mount_rearsight = function (o) {
+    const O = Object.assign({ mat: 'anod' }, o || {});
+    const P = bag();
+    const RAIL_Y = 12.4;
+    P.add('base', O.mat, boxC(0, 4.0, 0, 24, 8.0, 64, 2.0, 0.4));
+    for (const s of [-1, 1])
+      P.add('clawJaw', 'steelDk', boxC(s * 11.0, 1.0, 0, 4.0, 10.0, 56, 1.0, 0.3));
+    for (const z of [-20, 20])
+      P.add('clampScrew', 'steel', tr(rx(capScrew(3.4, 9, 1.6), PI), 11.0, -2.0, z));
+    P.add('rail', O.mat, tr(railStrip(60, -2, 5.0, 4.2), 0, RAIL_Y, 0));
+    return { parts: P.list, meta: {
+      slot: 'mount', name: 'Низкий переходник', short: 'НИЗКИЙ', weight: 90,
+      rails: { top: { pos: [0, RAIL_Y, -2], rot: [0, 0, 0], len: 60, accepts: ['optic'] } },
+      stats: { adsSpeed: 1, ergonomics: 1 } } };
+  };
+
+  /* Боковая планка под фонарь/ЛЦУ (SIDERAIL) — вешается на цевьё */
+  OUT.siderail_short = function (o) {
+    const O = Object.assign({ mat: 'anod', len: 76 }, o || {});
+    const P = bag();
+    const L = O.len;
+    P.add('base', O.mat, boxC(0, 3.0, 0, 22, 6.0, L, 1.8, 0.4));
+    P.add('rail', O.mat, tr(railStrip(L - 8, (L - 8) / 2, 5.0, 4.2), 0, 9.6, 0));
+    for (const z of [-L / 2 + 12, L / 2 - 12])
+      P.add('screw', 'steel', tr(rx(capScrew(3.0, 7, 1.4), PI), 0, 0.5, z));
+    return { parts: P.list, meta: {
+      slot: 'siderail', name: 'Боковая планка', short: 'ПЛАНКА', weight: 58, len: L,
+      rails: { top: { pos: [0, 9.6, (L - 8) / 2], rot: [0, 0, 0], len: L - 8,
+        accepts: ['tactical'] } },
+      stats: { mobility: -1, ergonomics: 2 } } };
+  };
+
   /* ==================================================================
      Боковые модули и мелочи
      ================================================================== */
@@ -2877,6 +2979,221 @@ module.exports = function (G, C) {
 
 });
 
+__def("occlude", function (module, exports) {
+/* ============================================================================
+   Скрытие заменяемых деталей базовой модели.
+
+   Проблема: у разных файлов оружия детали называются по-разному, а в части
+   моделей они вообще слиты в один меш по материалу. Поэтому скрытие работает
+   двумя способами, которые дополняют друг друга:
+
+     1) по имени/группе  — когда деталь существует отдельным мешем;
+     2) по зоне (боксу)  — деталь вырезается из общего меша на уровне
+        треугольников: всё, что попало в зону слота, помечается невидимым.
+
+   Зона задаётся в системе координат оружия, в миллиметрах:
+     { box:[x0,y0,z0,x1,y1,z1], when:'always'|'ifModule', slot:'handguard' }
+   ========================================================================== */
+module.exports = function () {
+
+  /* Зоны для каждого оружия: что убрать, когда в слоте стоит модуль.
+     Координаты получены обмером реальных моделей (tools/measure.js). */
+  const ZONES = {
+    ak74: {
+      /* цевьё: нижняя и верхняя накладки между газблоком и коробкой */
+      handguard: [{ box: [-26, 30, -500, 26, 118, -296] }],
+      /* приклад: всё позади коробки */
+      stock: [{ box: [-30, -20, 4, 30, 110, 300] }],
+      /* дульное устройство: от резьбы вперёд */
+      muzzle: [{ box: [-16, 58, -722, 16, 92, -634] }],
+      /* магазин живёт в своей группе — убираем целиком */
+      mag: [{ box: [-20, -200, -215, 20, 50, -80], group: 'magazine' }],
+      /* штатная крышка коробки заменяется крышкой с планкой */
+      mount: [{ box: [-21, 96, -258, 21, 126, 16] }]
+    },
+    akm: {
+      handguard: [{ box: [-26, 28, -478, 26, 124, -285] }],
+      stock: [{ box: [-30, -30, 30, 30, 100, 300] }],
+      muzzle: [{ box: [-16, 58, -670, 16, 92, -638] }],
+      mag: [{ box: [-20, -200, -225, 20, 42, -75], group: 'magazine' }],
+      mount: [{ box: [-21, 92, -250, 21, 124, 20] }]
+    },
+    m416: {
+      /* Штатные механические прицелы стоят на планке (ось 138 мм) и
+         перекрывают любой установленный прицел — при установке оптики
+         они «складываются», то есть убираются. */
+      optic: [
+        { box: [-16, 106, -230, 16, 150, -160] },   // целик
+        { box: [-16, 106, -30, 16, 150, 40] }       // мушка на газблоке/планке
+      ],
+      /* цевьё с планкой: длинная труба перед ресивером */
+      handguard: [{ box: [-28, 44, -432, 28, 112, -30] }],
+      stock: [{ box: [-34, -10, 0, 34, 116, 300] }],
+      muzzle: [{ box: [-16, 54, -575, 16, 88, -518] }],
+      mag: [{ box: [-20, -200, -160, 20, 60, -55], group: 'magazine' }]
+    },
+    scarh: {
+      handguard: [{ box: [-30, -30, -330, 30, 40, -60] }],
+      stock: [{ box: [-40, -60, 0, 40, 60, 320] }],
+      muzzle: [{ box: [-18, -20, -505, 18, 20, -425] }],
+      mag: [{ box: [-22, -220, -180, 22, -10, -60], group: 'magazine' }]
+    },
+    mp5a3: {
+      handguard: [{ box: [-28, -34, -215, 28, 34, -70] }],
+      stock: [{ box: [-36, -40, 60, 36, 60, 340] }],
+      muzzle: [{ box: [-16, -18, -260, 16, 18, -225] }],
+      mag: [{ box: [-20, -230, -150, 20, -8, -50], group: 'magazine' }]
+    },
+    svd: { muzzle: [{ box: [-18, -20, -600, 18, 20, -545] }] },
+    remington870: { muzzle: [{ box: [-18, -20, -505, 18, 20, -455] }] },
+    glock18c: { muzzle: [{ box: [-14, -16, -125, 14, 16, -108] }] }
+  };
+
+  /* Проверка: попадает ли точка в зону (с допуском). */
+  const inBox = (b, x, y, z, eps) => {
+    const e = eps || 0;
+    return x >= b[0] - e && x <= b[3] + e && y >= b[1] - e && y <= b[4] + e
+      && z >= b[2] - e && z <= b[5] + e;
+  };
+
+  /* Активные зоны для текущей конфигурации: слот занят → его зона включается. */
+  function activeZones(weaponKey, config) {
+    const table = ZONES[weaponKey] || {};
+    const out = [];
+    for (const slot in table) {
+      const mod = config[slot];
+      if (!mod) continue;                        // модуль не установлен — базовая деталь остаётся
+      for (const z of table[slot]) out.push(Object.assign({ slot }, z));
+    }
+    return out;
+  }
+
+  /* Вырезание треугольников меша, попавших в зоны.
+     Работает с BufferGeometry three.js: помечает вершины «схлопнутыми»
+     (все три в одну точку), поэтому треугольник исчезает без перестройки
+     индексов. Исходные координаты сохраняются, чтобы вернуть деталь. */
+  function carveGeometry(THREE, mesh, zones, matrixToWeapon) {
+    const geo = mesh.geometry;
+    if (!geo || !geo.attributes || !geo.attributes.position) return 0;
+    const pos = geo.attributes.position;
+    if (!mesh.userData.__origPos) mesh.userData.__origPos = pos.array.slice();
+    const orig = mesh.userData.__origPos;
+    const arr = pos.array;
+    arr.set(orig);
+    if (!zones.length) { pos.needsUpdate = true; return 0; }
+
+    const v = new THREE.Vector3();
+    let cut = 0;
+    const n = arr.length / 9;                    // треугольников (неиндексированная геометрия)
+    for (let t = 0; t < n; t++) {
+      const o = t * 9;
+      let inside = 0;
+      for (let k = 0; k < 3; k++) {
+        v.set(orig[o + k * 3], orig[o + k * 3 + 1], orig[o + k * 3 + 2]);
+        if (matrixToWeapon) v.applyMatrix4(matrixToWeapon);
+        const x = v.x * 1000, y = v.y * 1000, z = v.z * 1000;
+        for (const zn of zones) if (inBox(zn.box, x, y, z, 1.5)) { inside++; break; }
+      }
+      /* треугольник убираем, если он целиком внутри зоны */
+      if (inside === 3) {
+        for (let k = 1; k < 3; k++) {
+          arr[o + k * 3] = arr[o];
+          arr[o + k * 3 + 1] = arr[o + 1];
+          arr[o + k * 3 + 2] = arr[o + 2];
+        }
+        cut++;
+      }
+    }
+    pos.needsUpdate = true;
+    geo.computeBoundingSphere();
+    return cut;
+  }
+
+  /* Индексированная геометрия (у некоторых моделей): убираем индексы. */
+  function carveIndexed(THREE, mesh, zones, matrixToWeapon) {
+    const geo = mesh.geometry;
+    const idx = geo.index;
+    if (!idx) return carveGeometry(THREE, mesh, zones, matrixToWeapon);
+    if (!mesh.userData.__origIdx) mesh.userData.__origIdx = idx.array.slice();
+    const orig = mesh.userData.__origIdx;
+    const arr = idx.array;
+    arr.set(orig);
+    if (!zones.length) { idx.needsUpdate = true; return 0; }
+    const pos = geo.attributes.position.array;
+    const v = new THREE.Vector3();
+    let cut = 0;
+    for (let t = 0; t < orig.length / 3; t++) {
+      let inside = 0;
+      for (let k = 0; k < 3; k++) {
+        const vi = orig[t * 3 + k] * 3;
+        v.set(pos[vi], pos[vi + 1], pos[vi + 2]);
+        if (matrixToWeapon) v.applyMatrix4(matrixToWeapon);
+        for (const zn of zones) if (inBox(zn.box, v.x * 1000, v.y * 1000, v.z * 1000, 1.5)) { inside++; break; }
+      }
+      if (inside === 3) {
+        arr[t * 3] = arr[t * 3 + 1] = arr[t * 3 + 2] = orig[t * 3];
+        cut++;
+      }
+    }
+    idx.needsUpdate = true;
+    return cut;
+  }
+
+  /* Главная функция: применить скрытие ко всей базовой модели. */
+  function apply(THREE, host, weaponKey, config, opts) {
+    const O = Object.assign({ names: {}, groups: {} }, opts || {});
+    const zones = activeZones(weaponKey, config);
+    const byGroup = {};
+    for (const z of zones) if (z.group) (byGroup[z.group] = byGroup[z.group] || []).push(z);
+
+    host.updateWorldMatrix(true, true);
+    const inv = new THREE.Matrix4().copy(host.matrixWorld).invert();
+    let cutTotal = 0, hidden = 0;
+
+    /* Сначала вернуть всё, что скрывали раньше: снятие модуля возвращает
+       базовую деталь на место. */
+    host.traverse((o) => {
+      if (o.isMesh && o.userData && o.userData.__occHidden && !(o.userData.attachModule)) {
+        o.visible = true;
+        o.userData.__occHidden = false;
+      }
+    });
+
+    host.traverse((o) => {
+      if (o.userData && o.userData.attachModule) return;   // сами модули не трогаем
+
+      /* Группа-носитель (например «magazine») содержит и базовый магазин,
+         и модуль: скрываем в ней только базовые меши, иначе исчезнет и модуль. */
+      if (!o.isMesh && o.name && byGroup[o.name]) {
+        o.traverse((c) => {
+          if (c.isMesh && !(c.userData && c.userData.attachModule)) {
+            c.visible = false; c.userData.__occHidden = true; hidden++;
+          }
+        });
+        return;
+      }
+
+      if (!o.isMesh) return;
+      /* точечное скрытие по имени детали */
+      const byName = O.names[o.name];
+      if (byName && config[byName]) { o.visible = false; o.userData.__occHidden = true; hidden++; return; }
+
+      /* геометрическое вырезание по зонам */
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      const own = zones.filter((z) => !z.group);
+      cutTotal += o.geometry && o.geometry.index
+        ? carveIndexed(THREE, o, own, m)
+        : carveGeometry(THREE, o, own, m);
+    });
+
+    return { zones: zones.length, cut: cutTotal, hidden };
+  }
+
+  return { ZONES, activeZones, apply, carveGeometry, carveIndexed };
+};
+
+});
+
 __def("ui", function (module, exports) {
 /* ============================================================================
    Интерфейс кастомизации: список слотов, карусель модулей, панель
@@ -2885,26 +3202,63 @@ __def("ui", function (module, exports) {
    ========================================================================== */
 module.exports = function () {
   const CSS = `
-#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8eaed;pointer-events:none;letter-spacing:.06em}
+/* Панель кастомизации. Системный шрифт, широкие поля, никаких наложений:
+   слоты — сетка фиксированной ширины, список модулей — горизонтальная лента
+   с прокруткой, а не перенос в несколько рядов. */
+#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;pointer-events:none;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Arial,sans-serif}
 #cust.hidden{display:none}
-#custSlots{display:flex;gap:6px;justify-content:center;padding:0 10px 10px;flex-wrap:wrap;pointer-events:auto}
-.cslot{min-width:104px;border:1px solid rgba(255,255,255,.16);background:rgba(12,14,17,.72);backdrop-filter:blur(12px);padding:7px 10px;cursor:pointer;transition:border-color .15s,background .15s}
-.cslot:hover{background:rgba(26,30,36,.82)}
-.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.16)}
-.cslot .k{font-size:9.5px;color:rgba(255,255,255,.42);text-transform:uppercase}
-.cslot .v{font-size:12px;color:#fff;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
-#custList{display:flex;gap:6px;justify-content:center;padding:0 10px 8px;flex-wrap:wrap;pointer-events:auto}
-.copt{border:1px solid rgba(255,255,255,.14);background:rgba(12,14,17,.66);padding:6px 11px;cursor:pointer;font-size:11.5px}
-.copt:hover{background:rgba(26,30,36,.8)}
-.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.14)}
-.copt.bad{opacity:.42;border-style:dashed}
-#custStats{position:fixed;left:18px;top:86px;z-index:20;font:500 11px/1.7 ui-monospace,Menlo,monospace;pointer-events:none;min-width:190px}
-.cstat{display:flex;justify-content:space-between;gap:14px;padding:1px 7px;background:rgba(10,12,15,.55);border-left:2px solid rgba(255,255,255,.16)}
-.cstat.up{border-left-color:#6fcf7f;color:#a9e6b3}
-.cstat.dn{border-left-color:#e07a6a;color:#efa99b}
-.cstat b{font-weight:600}
-#custHint{text-align:center;padding-bottom:9px;color:rgba(255,255,255,.34);font-size:10.5px}
-#custWarn{text-align:center;color:#e6b07a;font-size:10.5px;padding-bottom:5px;min-height:14px}
+#cust *{box-sizing:border-box}
+
+#custSlots{display:flex;gap:8px;justify-content:center;align-items:stretch;
+  padding:10px 16px calc(14px + env(safe-area-inset-bottom));pointer-events:auto;
+  overflow-x:auto;scrollbar-width:none}
+#custSlots::-webkit-scrollbar{display:none}
+.cslot{flex:0 0 auto;width:132px;min-height:54px;border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;background:rgba(14,16,19,.88);backdrop-filter:blur(14px);
+  padding:8px 11px;cursor:pointer;transition:border-color .14s,background .14s;
+  display:flex;flex-direction:column;justify-content:center;gap:4px}
+.cslot:hover{background:rgba(30,34,40,.92);border-color:rgba(255,255,255,.26)}
+.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.18)}
+.cslot .k{font-size:10px;line-height:1.1;letter-spacing:.09em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cslot .v{font-size:13px;line-height:1.25;color:#fff;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.cslot.empty .v{color:rgba(255,255,255,.34)}
+
+#custList{display:flex;gap:7px;justify-content:flex-start;padding:0 16px 10px;
+  pointer-events:auto;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+#custList::-webkit-scrollbar{display:none}
+#custList:empty{display:none}
+.copt{flex:0 0 auto;border:1px solid rgba(255,255,255,.14);border-radius:7px;
+  background:rgba(14,16,19,.86);padding:9px 14px;cursor:pointer;font-size:12.5px;
+  line-height:1.2;color:#dfe3e8;white-space:nowrap;transition:background .14s,border-color .14s}
+.copt:hover{background:rgba(32,36,42,.94)}
+.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.16)}
+.copt.bad{opacity:.38;border-style:dashed;cursor:not-allowed}
+
+#custStats{position:fixed;left:18px;top:84px;z-index:20;pointer-events:none;
+  width:238px;display:flex;flex-direction:column;gap:2px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif}
+.cstat{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding:4px 10px;border-radius:5px;background:rgba(10,12,15,.78);
+  border-left:2px solid rgba(255,255,255,.18);font-size:11.5px;line-height:1.35}
+.cstat span{color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cstat b{font-weight:600;font-variant-numeric:tabular-nums;color:#f0f2f5;white-space:nowrap}
+.cstat.up{border-left-color:#63c97a}
+.cstat.up b{color:#96e6a6}
+.cstat.dn{border-left-color:#e07a6a}
+.cstat.dn b{color:#f0a598}
+.cstat i{font-style:normal;font-size:10px;margin-left:5px;opacity:.85}
+
+#custHint{text-align:center;padding:0 16px 10px;font-size:11px;line-height:1.5;
+  color:rgba(255,255,255,.34);letter-spacing:.02em}
+#custWarn{text-align:center;padding:0 16px 6px;font-size:11.5px;line-height:1.45;
+  color:#e8b45c;min-height:16px}
+@media (max-width:760px){
+  .cslot{width:112px}
+  #custStats{width:190px;top:70px;left:10px}
+}
 `;
 
   /* Подписи и порядок показа характеристик. up=true — больше значит лучше. */
@@ -2940,51 +3294,85 @@ function createCustomizer(opts) {
   const list = document.createElement('div'); list.id = 'custList';
   const slots = document.createElement('div'); slots.id = 'custSlots';
   const hint = document.createElement('div'); hint.id = 'custHint';
-  hint.textContent = 'TAB — кастомизация · ← → выбор модуля · 1…9 слот · B — сошки/приклад · L — фонарь · K — ЛЦУ';
+  hint.textContent = 'TAB — панель · 1…9 — слот · ← → — модуль · B — сошки/приклад · L — фонарь · K — ЛЦУ';
   host.append(warn, list, slots, hint);
   document.body.appendChild(host);
 
   const statBox = document.createElement('div'); statBox.id = 'custStats';
   document.body.appendChild(statBox);
 
-  let active = null, prevStats = null;
+  let active = null, prevStats = null, flash = {};
 
-  function render() {
-    const cfg = opts.getConfig(), defs = opts.getSlots();
+  function renderSlots(defs, cfg) {
     slots.innerHTML = '';
-    for (const s of defs) {
-      const el = document.createElement('div');
-      el.className = 'cslot' + (active === s.key ? ' on' : '');
+    defs.forEach((s, i) => {
       const cur = cfg[s.key];
-      el.innerHTML = '<div class="k">' + s.label + '</div><div class="v">' +
-        (cur ? opts.nameOf(cur) : '—') + '</div>';
+      const el = document.createElement('div');
+      el.className = 'cslot' + (active === s.key ? ' on' : '') + (cur ? '' : ' empty');
+      const k = document.createElement('div'); k.className = 'k';
+      k.textContent = (i < 9 ? (i + 1) + ' · ' : '') + s.label;
+      const v = document.createElement('div'); v.className = 'v';
+      v.textContent = cur ? opts.nameOf(cur) : '—';
+      v.title = v.textContent;
+      el.append(k, v);
       el.onclick = () => { active = s.key; render(); };
       slots.appendChild(el);
-    }
+      if (active === s.key) requestAnimationFrame(() => {
+        el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+    });
+  }
+
+  function renderOptions(cfg) {
     list.innerHTML = '';
-    if (active) {
-      const slot = defs.find((s) => s.key === active);
-      const options = opts.optionsFor(active);
-      for (const o of options) {
-        const el = document.createElement('div');
-        el.className = 'copt' + (cfg[active] === o.key ? ' sel' : '') + (o.fits === false ? ' bad' : '');
-        el.textContent = o.label;
-        el.onclick = () => { opts.setModule(active, o.key); render(); };
-        list.appendChild(el);
-      }
+    if (!active) return;
+    let selected = null;
+    for (const o of opts.optionsFor(active)) {
+      const el = document.createElement('div');
+      const isSel = (cfg[active] || null) === o.key;
+      el.className = 'copt' + (isSel ? ' sel' : '') + (o.fits === false ? ' bad' : '');
+      el.textContent = o.label;
+      el.title = o.fits === false ? 'Не подходит этому слоту' : o.label;
+      el.onclick = () => { if (o.fits !== false) { opts.setModule(active, o.key); render(); } };
+      list.appendChild(el);
+      if (isSel) selected = el;
     }
+    if (selected) requestAnimationFrame(() => {
+      selected.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+  }
+
+  function renderStats() {
     const st = opts.getStats();
     statBox.innerHTML = '';
     for (const d of STAT_DEFS) {
       if (st[d.k] === undefined) continue;
-      const v = st[d.k], pv = prevStats ? prevStats[d.k] : v;
+      const v = st[d.k], pv = prevStats ? prevStats[d.k] : undefined;
+      const changed = pv !== undefined && Math.abs(v - pv) > 1e-6;
       let cls = 'cstat';
-      if (pv !== undefined && Math.abs(v - pv) > 1e-6) cls += ((v > pv) === d.up) ? ' up' : ' dn';
+      if (changed) cls += ((v > pv) === d.up) ? ' up' : ' dn';
       const row = document.createElement('div');
       row.className = cls;
-      row.innerHTML = '<span>' + d.label + '</span><b>' + v.toFixed(d.d) + '</b>';
+      const name = document.createElement('span'); name.textContent = d.label;
+      const val = document.createElement('b');
+      val.textContent = v.toFixed(d.d);
+      if (changed) {
+        const diff = document.createElement('i');
+        const delta = v - pv;
+        diff.textContent = (delta > 0 ? '▲' : '▼') + Math.abs(delta).toFixed(d.d);
+        val.appendChild(diff);
+      }
+      row.append(name, val);
       statBox.appendChild(row);
     }
+  }
+
+  function render() {
+    const cfg = opts.getConfig(), defs = opts.getSlots();
+    if (active && !defs.some((s) => s.key === active)) active = null;
+    renderSlots(defs, cfg);
+    renderOptions(cfg);
+    renderStats();
     const w = opts.getWarnings();
     warn.textContent = w && w.length ? w.join(' · ') : '';
   }
@@ -2994,7 +3382,12 @@ function createCustomizer(opts) {
     markStats() { prevStats = Object.assign({}, opts.getStats()); },
     setActive(k) { active = k; render(); },
     getActive() { return active; },
-    toggle(on) { host.classList.toggle('hidden', on === false); statBox.style.display = on === false ? 'none' : ''; },
+    toggle(on) {
+      const show = on !== false;
+      host.classList.toggle('hidden', !show);
+      statBox.style.display = show ? '' : 'none';
+      if (show) render();
+    },
     visible() { return !host.classList.contains('hidden'); }
   };
 }
@@ -3087,6 +3480,9 @@ module.exports = function (G, C) {
       if (!slotGroups[slot]) {
         const g = new THREE.Group();
         g.name = 'slot:' + slot;
+        /* пометка нужна системе скрытия: детали модулей она не трогает,
+           даже если слот живёт в чужой группе (магазин, затвор) */
+        g.userData.attachModule = true;
         /* хост может увести слот в свою анимируемую группу (магазин, затвор) */
         let host = O.parentFor && O.parentFor(slot);
         if (host && typeof host.add !== 'function') host = host.group || host.obj || null;
@@ -3095,7 +3491,11 @@ module.exports = function (G, C) {
       }
       const key = slot + '|' + anim;
       if (!animGroups[key]) {
-        const g = new THREE.Group(); g.name = anim; slotGroups[slot].add(g); animGroups[key] = g;
+        const g = new THREE.Group();
+        g.name = anim;
+        g.userData.attachModule = true;
+        slotGroups[slot].add(g);
+        animGroups[key] = g;
       }
       return animGroups[key];
     };
@@ -3105,6 +3505,7 @@ module.exports = function (G, C) {
       const b = buckets[k];
       const mesh = new THREE.Mesh(toGeo(G.merge(b.list)), mkMat(b.mat, b.name));
       mesh.name = k;
+      mesh.userData.attachModule = true;
       mesh.castShadow = O.shadows;
       mesh.receiveShadow = O.shadows;
       groupFor(b.grp, b.anim).add(mesh);
@@ -3365,17 +3766,22 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -300], rot: [0, 0, 0],
         accepts: ['handguard'], length: 240, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 122, -196], rot: [0, 0, 0],
-        accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 96, -150], rot: [0, 0, 0],
-        accepts: ['sidemount'], order: 1, group: 'body' },
+      /* Прицел ставится не напрямую, а через кронштейн: крышка с планкой
+         садится на коробку (верх коробки y≈100, длина крышки 200 мм назад
+         от колодки), боковой — на «ласточкин хвост» слева. */
+      { key: 'mount', label: 'КРОНШТЕЙН', type: 'mount', pos: [0, 98, -8], rot: [0, 0, 0],
+        accepts: ['mount'], order: 1, group: 'body' },
+      /* планка крепится на левую щеку цевья: наружная стенка x=-21,
+         поэтому посадка чуть дальше и развёрнута наружу (+90° по Z) */
+      { key: 'siderail', label: 'БОК. ПЛАНКА', type: 'rail', pos: [-22, 78, -400],
+        rot: [0, 0, Math.PI / 2], accepts: ['siderail'], length: 90, order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -122], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
       { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 6], rot: [0, 0, 0],
         accepts: ['stock'], order: 0, group: 'body' }
     ],
     defaults: { muzzle: 'brake_ak', handguard: 'handguard_wood', mag: 'mag_ak_30',
-      stock: 'stock_wood', optic: null, sidemount: null }
+      stock: 'stock_wood' }
   },
 
   /* ---------------------------------------------------------------- АКМ */
@@ -3390,10 +3796,10 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 75, -290], rot: [0, 0, 0],
         accepts: ['handguard'], length: 220, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 120, -192], rot: [0, 0, 0],
-        accepts: ['optic', 'magnifier', 'ironRear'], length: 150, order: 2, group: 'body' },
-      { key: 'sidemount', label: 'КРОНШТЕЙН', type: 'side', pos: [-19, 95, -148], rot: [0, 0, 0],
-        accepts: ['sidemount'], order: 1, group: 'body' },
+      { key: 'mount', label: 'КРОНШТЕЙН', type: 'mount', pos: [0, 97, -10], rot: [0, 0, 0],
+        accepts: ['mount'], order: 1, group: 'body' },
+      { key: 'siderail', label: 'БОК. ПЛАНКА', type: 'rail', pos: [-25, 54, -380],
+        rot: [0, 0, Math.PI / 2], accepts: ['siderail'], length: 90, order: 1, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 42, -120], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
       { key: 'stock', label: 'ПРИКЛАД', type: 'rear', pos: [0, 48, 8], rot: [0, 0, 0],
@@ -3416,7 +3822,8 @@ module.exports = {
         accepts: ['muzzle'], order: 0, group: 'body' },
       { key: 'handguard', label: 'ЦЕВЬЁ', type: 'barrel', pos: [0, 70, -110], rot: [0, 0, 0],
         accepts: ['handguard'], length: 260, order: 0, group: 'body' },
-      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -60], rot: [0, 0, 0],
+      /* штатная планка ресивера: верх на y=104 (98 + 6 высоты основания) */
+      { key: 'optic', label: 'ПРИЦЕЛ', type: 'rail', pos: [0, 104, -10], rot: [0, 0, 0],
         accepts: ['optic', 'magnifier', 'ironRear'], length: 170, order: 2, group: 'body' },
       { key: 'mag', label: 'МАГАЗИН', type: 'well', pos: [0, 52, -92], rot: [0, 0, 0],
         accepts: ['mag'], order: 0, group: 'magazine' },
@@ -3549,14 +3956,15 @@ module.exports = {
   const REG = SYS.registry(CATALOGS);
   const ADAPTER = __req('three_adapter')(G, C);
   const RAW = __req('raw_adapter')(G, C);
+  const OCC = __req('occlude')();
   const UI = __req('ui')();
   const SLOTS = __req('slots');
-  return { G, C, SYS, REG, ADAPTER, RAW, UI, SLOTS, catalogs: CATALOGS };
+  return { G, C, SYS, REG, ADAPTER, RAW, OCC, UI, SLOTS, catalogs: CATALOGS };
 })();
 
 
 /* --- интерфейс кастомизации (генерируется src/attach/ui.js) --- */
-const CUST_CSS = "\n#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e8eaed;pointer-events:none;letter-spacing:.06em}\n#cust.hidden{display:none}\n#custSlots{display:flex;gap:6px;justify-content:center;padding:0 10px 10px;flex-wrap:wrap;pointer-events:auto}\n.cslot{min-width:104px;border:1px solid rgba(255,255,255,.16);background:rgba(12,14,17,.72);backdrop-filter:blur(12px);padding:7px 10px;cursor:pointer;transition:border-color .15s,background .15s}\n.cslot:hover{background:rgba(26,30,36,.82)}\n.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.16)}\n.cslot .k{font-size:9.5px;color:rgba(255,255,255,.42);text-transform:uppercase}\n.cslot .v{font-size:12px;color:#fff;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}\n#custList{display:flex;gap:6px;justify-content:center;padding:0 10px 8px;flex-wrap:wrap;pointer-events:auto}\n.copt{border:1px solid rgba(255,255,255,.14);background:rgba(12,14,17,.66);padding:6px 11px;cursor:pointer;font-size:11.5px}\n.copt:hover{background:rgba(26,30,36,.8)}\n.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.14)}\n.copt.bad{opacity:.42;border-style:dashed}\n#custStats{position:fixed;left:18px;top:86px;z-index:20;font:500 11px/1.7 ui-monospace,Menlo,monospace;pointer-events:none;min-width:190px}\n.cstat{display:flex;justify-content:space-between;gap:14px;padding:1px 7px;background:rgba(10,12,15,.55);border-left:2px solid rgba(255,255,255,.16)}\n.cstat.up{border-left-color:#6fcf7f;color:#a9e6b3}\n.cstat.dn{border-left-color:#e07a6a;color:#efa99b}\n.cstat b{font-weight:600}\n#custHint{text-align:center;padding-bottom:9px;color:rgba(255,255,255,.34);font-size:10.5px}\n#custWarn{text-align:center;color:#e6b07a;font-size:10.5px;padding-bottom:5px;min-height:14px}\n";
+const CUST_CSS = "\n/* Панель кастомизации. Системный шрифт, широкие поля, никаких наложений:\n   слоты — сетка фиксированной ширины, список модулей — горизонтальная лента\n   с прокруткой, а не перенос в несколько рядов. */\n#cust{position:fixed;left:0;right:0;bottom:0;z-index:20;pointer-events:none;\n  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,Arial,sans-serif}\n#cust.hidden{display:none}\n#cust *{box-sizing:border-box}\n\n#custSlots{display:flex;gap:8px;justify-content:center;align-items:stretch;\n  padding:10px 16px calc(14px + env(safe-area-inset-bottom));pointer-events:auto;\n  overflow-x:auto;scrollbar-width:none}\n#custSlots::-webkit-scrollbar{display:none}\n.cslot{flex:0 0 auto;width:132px;min-height:54px;border:1px solid rgba(255,255,255,.14);\n  border-radius:8px;background:rgba(14,16,19,.88);backdrop-filter:blur(14px);\n  padding:8px 11px;cursor:pointer;transition:border-color .14s,background .14s;\n  display:flex;flex-direction:column;justify-content:center;gap:4px}\n.cslot:hover{background:rgba(30,34,40,.92);border-color:rgba(255,255,255,.26)}\n.cslot.on{border-color:#e8b45c;background:rgba(232,180,92,.18)}\n.cslot .k{font-size:10px;line-height:1.1;letter-spacing:.09em;text-transform:uppercase;\n  color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.cslot .v{font-size:13px;line-height:1.25;color:#fff;white-space:nowrap;\n  overflow:hidden;text-overflow:ellipsis}\n.cslot.empty .v{color:rgba(255,255,255,.34)}\n\n#custList{display:flex;gap:7px;justify-content:flex-start;padding:0 16px 10px;\n  pointer-events:auto;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}\n#custList::-webkit-scrollbar{display:none}\n#custList:empty{display:none}\n.copt{flex:0 0 auto;border:1px solid rgba(255,255,255,.14);border-radius:7px;\n  background:rgba(14,16,19,.86);padding:9px 14px;cursor:pointer;font-size:12.5px;\n  line-height:1.2;color:#dfe3e8;white-space:nowrap;transition:background .14s,border-color .14s}\n.copt:hover{background:rgba(32,36,42,.94)}\n.copt.sel{border-color:#e8b45c;color:#ffd79a;background:rgba(232,180,92,.16)}\n.copt.bad{opacity:.38;border-style:dashed;cursor:not-allowed}\n\n#custStats{position:fixed;left:18px;top:84px;z-index:20;pointer-events:none;\n  width:238px;display:flex;flex-direction:column;gap:2px;\n  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif}\n.cstat{display:flex;align-items:baseline;justify-content:space-between;gap:12px;\n  padding:4px 10px;border-radius:5px;background:rgba(10,12,15,.78);\n  border-left:2px solid rgba(255,255,255,.18);font-size:11.5px;line-height:1.35}\n.cstat span{color:rgba(255,255,255,.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.cstat b{font-weight:600;font-variant-numeric:tabular-nums;color:#f0f2f5;white-space:nowrap}\n.cstat.up{border-left-color:#63c97a}\n.cstat.up b{color:#96e6a6}\n.cstat.dn{border-left-color:#e07a6a}\n.cstat.dn b{color:#f0a598}\n.cstat i{font-style:normal;font-size:10px;margin-left:5px;opacity:.85}\n\n#custHint{text-align:center;padding:0 16px 10px;font-size:11px;line-height:1.5;\n  color:rgba(255,255,255,.34);letter-spacing:.02em}\n#custWarn{text-align:center;padding:0 16px 6px;font-size:11.5px;line-height:1.45;\n  color:#e8b45c;min-height:16px}\n@media (max-width:760px){\n  .cslot{width:112px}\n  #custStats{width:190px;top:70px;left:10px}\n}\n";
 const STAT_DEFS = [{"k":"vertRecoil","label":"Подброс","up":false,"d":2},{"k":"horizRecoil","label":"Увод","up":false,"d":2},{"k":"hipSpread","label":"Разброс от бедра","up":false,"d":2},{"k":"adsTime","label":"Вскидка, с","up":false,"d":3},{"k":"mobility","label":"Подвижность","up":true,"d":0},{"k":"reloadTime","label":"Перезарядка, с","up":false,"d":3},{"k":"muzzleVelocity","label":"Скорость, м/с","up":true,"d":0},{"k":"effectiveRange","label":"Дальность, м","up":true,"d":0},{"k":"loudness","label":"Громкость","up":false,"d":0},{"k":"flashVisible","label":"Заметность вспышки","up":false,"d":0},{"k":"weight","label":"Масса, г","up":false,"d":0},{"k":"magCap","label":"Ёмкость","up":true,"d":0}];
 
 function createCustomizer(opts) {
@@ -3569,51 +3977,85 @@ function createCustomizer(opts) {
   const list = document.createElement('div'); list.id = 'custList';
   const slots = document.createElement('div'); slots.id = 'custSlots';
   const hint = document.createElement('div'); hint.id = 'custHint';
-  hint.textContent = 'TAB — кастомизация · ← → выбор модуля · 1…9 слот · B — сошки/приклад · L — фонарь · K — ЛЦУ';
+  hint.textContent = 'TAB — панель · 1…9 — слот · ← → — модуль · B — сошки/приклад · L — фонарь · K — ЛЦУ';
   host.append(warn, list, slots, hint);
   document.body.appendChild(host);
 
   const statBox = document.createElement('div'); statBox.id = 'custStats';
   document.body.appendChild(statBox);
 
-  let active = null, prevStats = null;
+  let active = null, prevStats = null, flash = {};
 
-  function render() {
-    const cfg = opts.getConfig(), defs = opts.getSlots();
+  function renderSlots(defs, cfg) {
     slots.innerHTML = '';
-    for (const s of defs) {
-      const el = document.createElement('div');
-      el.className = 'cslot' + (active === s.key ? ' on' : '');
+    defs.forEach((s, i) => {
       const cur = cfg[s.key];
-      el.innerHTML = '<div class="k">' + s.label + '</div><div class="v">' +
-        (cur ? opts.nameOf(cur) : '—') + '</div>';
+      const el = document.createElement('div');
+      el.className = 'cslot' + (active === s.key ? ' on' : '') + (cur ? '' : ' empty');
+      const k = document.createElement('div'); k.className = 'k';
+      k.textContent = (i < 9 ? (i + 1) + ' · ' : '') + s.label;
+      const v = document.createElement('div'); v.className = 'v';
+      v.textContent = cur ? opts.nameOf(cur) : '—';
+      v.title = v.textContent;
+      el.append(k, v);
       el.onclick = () => { active = s.key; render(); };
       slots.appendChild(el);
-    }
+      if (active === s.key) requestAnimationFrame(() => {
+        el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+    });
+  }
+
+  function renderOptions(cfg) {
     list.innerHTML = '';
-    if (active) {
-      const slot = defs.find((s) => s.key === active);
-      const options = opts.optionsFor(active);
-      for (const o of options) {
-        const el = document.createElement('div');
-        el.className = 'copt' + (cfg[active] === o.key ? ' sel' : '') + (o.fits === false ? ' bad' : '');
-        el.textContent = o.label;
-        el.onclick = () => { opts.setModule(active, o.key); render(); };
-        list.appendChild(el);
-      }
+    if (!active) return;
+    let selected = null;
+    for (const o of opts.optionsFor(active)) {
+      const el = document.createElement('div');
+      const isSel = (cfg[active] || null) === o.key;
+      el.className = 'copt' + (isSel ? ' sel' : '') + (o.fits === false ? ' bad' : '');
+      el.textContent = o.label;
+      el.title = o.fits === false ? 'Не подходит этому слоту' : o.label;
+      el.onclick = () => { if (o.fits !== false) { opts.setModule(active, o.key); render(); } };
+      list.appendChild(el);
+      if (isSel) selected = el;
     }
+    if (selected) requestAnimationFrame(() => {
+      selected.scrollIntoView({ block: 'nearest', inline: 'center' });
+    });
+  }
+
+  function renderStats() {
     const st = opts.getStats();
     statBox.innerHTML = '';
     for (const d of STAT_DEFS) {
       if (st[d.k] === undefined) continue;
-      const v = st[d.k], pv = prevStats ? prevStats[d.k] : v;
+      const v = st[d.k], pv = prevStats ? prevStats[d.k] : undefined;
+      const changed = pv !== undefined && Math.abs(v - pv) > 1e-6;
       let cls = 'cstat';
-      if (pv !== undefined && Math.abs(v - pv) > 1e-6) cls += ((v > pv) === d.up) ? ' up' : ' dn';
+      if (changed) cls += ((v > pv) === d.up) ? ' up' : ' dn';
       const row = document.createElement('div');
       row.className = cls;
-      row.innerHTML = '<span>' + d.label + '</span><b>' + v.toFixed(d.d) + '</b>';
+      const name = document.createElement('span'); name.textContent = d.label;
+      const val = document.createElement('b');
+      val.textContent = v.toFixed(d.d);
+      if (changed) {
+        const diff = document.createElement('i');
+        const delta = v - pv;
+        diff.textContent = (delta > 0 ? '▲' : '▼') + Math.abs(delta).toFixed(d.d);
+        val.appendChild(diff);
+      }
+      row.append(name, val);
       statBox.appendChild(row);
     }
+  }
+
+  function render() {
+    const cfg = opts.getConfig(), defs = opts.getSlots();
+    if (active && !defs.some((s) => s.key === active)) active = null;
+    renderSlots(defs, cfg);
+    renderOptions(cfg);
+    renderStats();
     const w = opts.getWarnings();
     warn.textContent = w && w.length ? w.join(' · ') : '';
   }
@@ -3623,7 +4065,12 @@ function createCustomizer(opts) {
     markStats() { prevStats = Object.assign({}, opts.getStats()); },
     setActive(k) { active = k; render(); },
     getActive() { return active; },
-    toggle(on) { host.classList.toggle('hidden', on === false); statBox.style.display = on === false ? 'none' : ''; },
+    toggle(on) {
+      const show = on !== false;
+      host.classList.toggle('hidden', !show);
+      statBox.style.display = show ? '' : 'none';
+      if (show) render();
+    },
     visible() { return !host.classList.contains('hidden'); }
   };
 }
@@ -3636,6 +4083,8 @@ const ATTACH_STATE = {
   asm: null, view: null, ui: null,
   toggles: { light: 0, laser: 0, ir: 0, deploy: {} }
 };
+/* деталь базовой модели -> слот, который её заменяет (для точечного скрытия) */
+const ATTACH_HIDE_BY_NAME = {"stock":"stock","buttPlate":"stock","buttSerration":"stock","buttScrew":"stock","swivelRear":"stock","swivelRearBase":"stock","magBody":"mag","magLips":"mag","magFloor":"mag","magCatchLug":"mag","lowerHandguard":"handguard","handguardBand":"handguard","handguardBandRear":"handguard","upperHandguardTop":"handguard","upperHandguardR":"handguard","upperHandguardL":"handguard","upperBand":"handguard","brakeBase":"muzzle","brakeWindow":"muzzle","brakeCrown":"muzzle","brakeDetent":"muzzle","dustCover":"mount","coverNose":"mount","sideRail":"siderail","railTop":"siderail","railBot":"siderail"};
 
 /* Список модулей, подходящих слоту (для интерфейса). */
 function attachOptionsFor(slotKey) {
@@ -3689,6 +4138,16 @@ function attachRebuild(THREE, parent, baseParts, weaponNodes) {
   view.setBeam('ir', ATTACH_STATE.toggles.ir);
   for (const k in ATTACH_STATE.toggles.deploy) view.setDeploy(k, ATTACH_STATE.toggles.deploy[k]);
   return asm;
+}
+
+/* Скрытие заменяемых деталей базовой модели: зоны включаются по конфигурации.
+   Вызывается после каждой пересборки, поэтому снятие модуля возвращает
+   исходную деталь на место. */
+function attachOcclude(THREE, host) {
+  if (!host) return null;
+  return __ATTACH.OCC.apply(THREE, host, "akm", ATTACH_STATE.config, {
+    names: ATTACH_HIDE_BY_NAME, groups: {}
+  });
 }
 
 /* Публичный API: смена модулей из консоли, автотестов и внешнего интерфейса.
@@ -4680,22 +5139,7 @@ try {
 
 /* ATTACH: подключение (akm) */
 const ATTACH_HOST = akm;
-/* Скрыть детали базовой модели, которые заменяет модуль этого слота. */
-const ATTACH_HIDE_NAMES = ["stock","buttPlate","buttSerration","swivelRearBase","magBody","magLips","magFloor","magCatchLug","handguard","handguardLower","handguardUpper"];
-const ATTACH_HIDE_GROUPS = [];
-function attachHideBase() {
-  const names = new Set(ATTACH_HIDE_NAMES);
-  const groups = new Set(ATTACH_HIDE_GROUPS);
-  ATTACH_HOST.traverse((o) => {
-    if (o.userData && o.userData.attachModule) return;
-    if (names.has(o.name) || groups.has(o.name)) o.visible = false;
-  });
-  for (const gk of ATTACH_HIDE_GROUPS) {
-    const src = (typeof parts !== 'undefined' && parts && parts[gk]) ||
-      (typeof reg !== 'undefined' && reg && reg[gk]) || null;
-    if (src && src.visible !== undefined) src.visible = false;
-  }
-}
+window.__MEASURE_HOST = ATTACH_HOST; window.__MEASURE_THREE = THREE;
 const ATTACH_MAGHOST = () => (akm.parts && akm.parts.magazine) || null;
 let ATTACH_ASM = attachRebuildWeapon();
 
@@ -4717,8 +5161,8 @@ function attachRebuildWeapon() {
   view.root.userData.attachModule = true;
   view.root.traverse((o) => { o.userData.attachModule = true; });
   ATTACH_HOST.add(view.root);
-  attachHideBase();
   ATTACH_STATE.asm = asm;
+  attachOcclude(THREE, ATTACH_HOST);
   ATTACH_STATE.view = view;
   view.setBeam('light', ATTACH_STATE.toggles.light);
   view.setBeam('laser', ATTACH_STATE.toggles.laser);

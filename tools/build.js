@@ -45,7 +45,7 @@ const __ATTACH = (function () {
 `);
 
   parts.push(wrap('kernel', read(path.join(SRC, 'kernel.js'))));
-  for (const f of ['common', 'optics', 'muzzle', 'tactical', 'mags_stocks', 'system', 'ui'])
+  for (const f of ['common', 'optics', 'muzzle', 'tactical', 'mags_stocks', 'system', 'occlude', 'ui'])
     parts.push(wrap(f, read(path.join(SRC, 'attach', f + '.js'))));
   parts.push(wrap('three_adapter', read(path.join(SRC, 'adapters', 'three_adapter.js'))));
   parts.push(wrap('raw_adapter', read(path.join(SRC, 'adapters', 'raw_adapter.js'))));
@@ -62,9 +62,10 @@ const __ATTACH = (function () {
   const REG = SYS.registry(CATALOGS);
   const ADAPTER = __req('three_adapter')(G, C);
   const RAW = __req('raw_adapter')(G, C);
+  const OCC = __req('occlude')();
   const UI = __req('ui')();
   const SLOTS = __req('slots');
-  return { G, C, SYS, REG, ADAPTER, RAW, UI, SLOTS, catalogs: CATALOGS };
+  return { G, C, SYS, REG, ADAPTER, RAW, OCC, UI, SLOTS, catalogs: CATALOGS };
 })();
 `);
   /* интерфейс живёт в глобальной области файла оружия */
@@ -88,6 +89,8 @@ const ATTACH_STATE = {
   asm: null, view: null, ui: null,
   toggles: { light: 0, laser: 0, ir: 0, deploy: {} }
 };
+/* деталь базовой модели -> слот, который её заменяет (для точечного скрытия) */
+const ATTACH_HIDE_BY_NAME = ${JSON.stringify(opt.hideByName || {})};
 
 /* Список модулей, подходящих слоту (для интерфейса). */
 function attachOptionsFor(slotKey) {
@@ -141,6 +144,16 @@ function attachRebuild(THREE, parent, baseParts, weaponNodes) {
   view.setBeam('ir', ATTACH_STATE.toggles.ir);
   for (const k in ATTACH_STATE.toggles.deploy) view.setDeploy(k, ATTACH_STATE.toggles.deploy[k]);
   return asm;
+}
+
+/* Скрытие заменяемых деталей базовой модели: зоны включаются по конфигурации.
+   Вызывается после каждой пересборки, поэтому снятие модуля возвращает
+   исходную деталь на место. */
+function attachOcclude(THREE, host) {
+  if (!host) return null;
+  return __ATTACH.OCC.apply(THREE, host, ${JSON.stringify(weaponKey)}, ATTACH_STATE.config, {
+    names: ATTACH_HIDE_BY_NAME, groups: {}
+  });
 }
 
 /* Публичный API: смена модулей из консоли, автотестов и внешнего интерфейса.
